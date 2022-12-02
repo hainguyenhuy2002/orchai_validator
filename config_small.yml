@@ -1,0 +1,8 @@
+db:
+  host: "103.160.75.28"
+  port: 5432
+  user: "orchai_reader"
+  password: "orchai_reader123"
+  database: "orchai"
+  table: "(select * from public.validator_block limit 100) as t"
+

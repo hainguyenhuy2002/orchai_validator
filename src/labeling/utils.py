@@ -41,6 +41,7 @@ def query(
         .option("url", f"jdbc:postgresql://{host}:{port}/{database}")
         .option("user", user)
         .option("password", password)
+        .option("customSchema", "tokens decimal(38,0), delegator_shares decimal(38,0), self_bonded decimal(38,0)")
         .option("dbtable", table)
         .load()
     )

@@ -31,7 +31,37 @@ class ETLProcessor(object):
             C: self_bonded weight
             D: vote_proposed_score weight
         """
+        df = ETLProcessor.preprocess(df)
+       
+        df = ETLProcessor.voting_power_score(df)
+        print("------------------------------------------------")
+        print("Successfully converted voting_power_score column")
+        print("------------------------------------------------")
 
+        df = ETLProcessor.commission_score(df, accept_rate)
+        print("------------------------------------------------")
+        print("Successfully converted commission_score column")
+        print("------------------------------------------------")
+
+        df = ETLProcessor.self_bonded_score(df, concentration_level)
+        print("------------------------------------------------")
+        print("Successfully converted self_bonded_score column")
+        print("------------------------------------------------")
+
+        df = ETLProcessor.vote_proposed_score(df, vote_score, propose_score)
+        print("------------------------------------------------")
+        print("Successfully converted vote_propose_score column")
+        print("------------------------------------------------")
+
+        df = ETLProcessor.final_score(df, A, B, C, D)
+        print("------------------------------------------------")
+        print("Sucessfully converted final_score")
+        print("------------------------------------------------")
+
+        return df
+
+    @staticmethod
+    def preprocess(df: DataFrame):
         ### Mapping False:0, True: 1
         for c in ["jailed", "vote", "propose"]:
             df = df.withColumn(c, F.col(c).cast("integer"))
@@ -61,31 +91,6 @@ class ETLProcessor(object):
             .withColumnRenamed("sum(self_bonded)", "total_self_bonded_amt_per_block")
         )
         df = df.join(self_bond_block_df, on="block_height", how="left")
-
-        df = ETLProcessor.voting_power_score(df)
-        print("------------------------------------------------")
-        print("Successfully converted voting_power_score column")
-        print("------------------------------------------------")
-
-        df = ETLProcessor.commission_score(df, accept_rate)
-        print("------------------------------------------------")
-        print("Successfully converted commission_score column")
-        print("------------------------------------------------")
-
-        df = ETLProcessor.self_bonded_score(df, concentration_level)
-        print("------------------------------------------------")
-        print("Successfully converted self_bonded_score column")
-        print("------------------------------------------------")
-
-        df = ETLProcessor.vote_proposed_score(df, vote_score, propose_score)
-        print("------------------------------------------------")
-        print("Successfully converted vote_propose_score column")
-        print("------------------------------------------------")
-
-        df = ETLProcessor.final_score(df, A, B, C, D)
-        print("------------------------------------------------")
-        print("Sucessfully converted final_score")
-        print("------------------------------------------------")
 
         return df
 

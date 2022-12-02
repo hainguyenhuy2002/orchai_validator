@@ -4,5 +4,5 @@ db:
   user: "orchai_reader"
   password: "orchai_reader123"
   database: "orchai"
-  table: "(select * from public.validator_block limit 100) as t"
+  table: "(select * from public.validator_block order by block_height limit 100000) as t"
 

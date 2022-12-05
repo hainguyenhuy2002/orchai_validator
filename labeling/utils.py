@@ -23,17 +23,13 @@ def query(
     user: str,
     password: str,
     database: str,
-    table: str,
-    schema: str=None,
+    table: str
 ) -> DataFrame:
     ### Remove prefix http and https
     __prefix = ['http://', 'https://']
     for p in __prefix:
         if host.startswith(p):
             host = host[len(p):]
-
-    if schema is not None:
-        table = f"{schema}.{table}"
 
     df = (
         spark.read.format("jdbc")
@@ -48,6 +44,31 @@ def query(
 
     print("Successfully queried data from database")
     return df
+
+
+def upload(
+    df: DataFrame,
+    host: str,
+    port: Union[str, int],
+    user: str,
+    password: str,
+    database: str,
+    table: str,
+    mode="append",
+    **kwargs
+):
+    df = (
+    df.write.format('jdbc')
+        .option("driver", "org.postgresql.Driver")
+        .option("url", f"jdbc:postgresql://{host}:{port}/{database}")
+        .option('user', user)
+        .option('password', password)
+        .option('dbtable', table)
+    )
+
+    for k, v in kwargs.items():
+        df = df.option(k, v)
+    df.mode(mode).save()
 
 
 

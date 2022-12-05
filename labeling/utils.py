@@ -11,7 +11,13 @@ def get_spark(psql_jar_path: str="./lib/postgresql-42.5.0.jar") -> SparkSession:
     return (
         SparkSession.builder.appName("Python Spark SQL basic example")
         .config("spark.jars", psql_jar_path)
-        .config("spark.driver.memory", "8g")
+        .config("spark.executor.memory", "4G")
+        .config("spark.driver.memory","18G")
+        .config("spark.executor.cores","7")
+        .config("spark.python.worker.memory","4G")
+        .config("spark.driver.maxResultSize","6G")
+        .config("spark.serializer","org.apache.spark.serializer.KryoSerializer")
+        .config("spark.kryoserializer.buffer.max","1024M")
         .getOrCreate()
     )
 

@@ -62,6 +62,8 @@ class ETLProcessor(object):
 
     @staticmethod
     def preprocess(df: DataFrame):
+        df = ETLProcessor.prefix_data(df)
+        
         ### Mapping False:0, True: 1
         for c in ["jailed", "vote", "propose"]:
             df = df.withColumn(c, F.col(c).cast("integer"))
@@ -187,3 +189,8 @@ class ETLProcessor(object):
         df = df.withColumn("score", F.when(F.col("status").rlike("UNBONDED"), 0).otherwise(df.score))
 
         return df
+
+    @staticmethod
+    def prefix_data(df: DataFrame):
+        df = df.withColumn("commission_rate", (F.col("commission_rate")/10**18))
+        return df       

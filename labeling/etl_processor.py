@@ -192,5 +192,5 @@ class ETLProcessor(object):
 
     @staticmethod
     def prefix_data(df: DataFrame):
-        df = df.withColumn("commission_rate", (F.col("commission_rate")/10**18))
+        df = df.withColumn("commission_rate", (F.col("commission_rate")/(10**18)))
         return df       

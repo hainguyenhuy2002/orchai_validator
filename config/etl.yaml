@@ -1,11 +1,11 @@
-from:
+src:
   host: "103.160.75.28"
   port: 5432
   user: "orchai_rw"
   password: "travaorchai_rw123"
   database: "orchai"
   table: "public.validator_block"
-to:
+dest:
   host: "103.160.75.28"
   port: 5432
   user: "orchai_rw"
@@ -13,3 +13,14 @@ to:
   database: "orchai"
   table: "public.validator_score"
   batchsize: 1000
+hp:
+  accept_rate: 0.1
+  concentration_level: 0.9
+  vote_score: 2
+  propose_score: 6
+  window_size: 600
+  A: 9
+  B: 4
+  C: 2
+  D: 4
+  batch_size: 2000

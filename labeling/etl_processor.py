@@ -10,10 +10,12 @@ class ETLProcessor(object):
         concentration_level: float,
         vote_score: int,
         propose_score: int,
+        window_size: int,
         A: int,
         B: int,
         C: int,
         D: int,
+        **kwargs
     ):
         """
         Args:
@@ -48,7 +50,7 @@ class ETLProcessor(object):
         print("Successfully converted self_bonded_score column")
         print("------------------------------------------------")
 
-        df = ETLProcessor.vote_proposed_score(df, vote_score, propose_score)
+        df = ETLProcessor.vote_proposed_score(df, vote_score, propose_score, window_size)
         print("------------------------------------------------")
         print("Successfully converted vote_propose_score column")
         print("------------------------------------------------")
@@ -137,14 +139,14 @@ class ETLProcessor(object):
         return df
 
     @staticmethod
-    def vote_proposed_score(df: DataFrame, vote_score: int, propose_score: int):
+    def vote_proposed_score(df: DataFrame, vote_score: int, propose_score: int, window_size: int):
         df = df.withColumn("vote_propose_point", vote_score * df.vote + propose_score * df.propose)
 
         vote_propose_score_df = df.select("operator_address", "block_height", "vote_propose_point").orderBy(
             "operator_address", "block_height"
         )
 
-        cummulative_window = Window.partitionBy("operator_address").orderBy("block_height").rangeBetween(-599, 0)
+        cummulative_window = Window.partitionBy("operator_address").orderBy("block_height").rangeBetween(-window_size + 1, 0)
         ### Window for moving average step
         ### Step now row and last 599 row
 
@@ -156,7 +158,7 @@ class ETLProcessor(object):
             ### It is possible to lag a column which was not the orderBy column
             "vote_propose_score",
             F.when(
-                F.lag("vote_propose_point", 599).over(lag_window).isNotNull(), F.sum("vote_propose_point").over(cummulative_window)
+                F.lag("vote_propose_point", window_size - 1).over(lag_window).isNotNull(), F.sum("vote_propose_point").over(cummulative_window)
             ),
         )
 

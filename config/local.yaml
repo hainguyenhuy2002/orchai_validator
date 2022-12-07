@@ -1,12 +1,12 @@
-from:
+src:
   host: "103.160.75.28"
   port: 5432
   user: "orchai_rw"
   password: "travaorchai_rw123"
   database: "orchai"
-  # table: "public.validator_block"
-  table: "(select * from public.validator_block order by block_height limit 100000) as t"
-to:
+  table: "public.validator_block"
+  # table: "(select * from public.validator_block order by block_height limit 100000) as t"
+dest:
   host: "127.0.0.1"
   port: 5432
   user: "postgres"
@@ -14,3 +14,14 @@ to:
   database: "orchai"
   table: "validator_score"
   batchsize: 1000
+hp:
+  accept_rate: 0.1
+  concentration_level: 0.9
+  vote_score: 2
+  propose_score: 6
+  window_size: 600
+  A: 9
+  B: 4
+  C: 2
+  D: 4
+  batch_size: 2000

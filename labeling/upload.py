@@ -1,3 +1,4 @@
+import os
 import time
 from labeling.etl_processor import ETLProcessor
 from labeling.tools import get_spark, query, upload
@@ -83,6 +84,8 @@ def main(config, start_block: int, end_block: int, checkpoint: str=None):
             raise ValueError("Must provide start-end blocks or checkpoint path")
 
         checkpoint = f'ckpt_{start_block}_{end_block}.txt'
+        if os.path.exists(checkpoint):
+            raise ValueError(f"Checkpoint {checkpoint} exists, please delete it")
         ckpt_logger = open(checkpoint, 'w')
         ckpt_logger.write(f"{start_block} -> {end_block}")
         ckpt_logger.close()
@@ -90,7 +93,6 @@ def main(config, start_block: int, end_block: int, checkpoint: str=None):
     ckpt_logger = open(checkpoint, 'a')
     def log_ckpt(start, end):
         ckpt_logger.write(f"{start} -> {end}\n")
-
 
     print("Uploading process: from", start_block, "to", end_block, "with window size", window_size)
 

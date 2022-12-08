@@ -14,6 +14,9 @@ class ETLProcessor(object):
         B: int,
         C: int,
         D: int,
+        vote_proposed_win_size: int,
+        combine_win_size: int,
+        label_win_size: int
     ):
         """
         Args:
@@ -30,6 +33,23 @@ class ETLProcessor(object):
             B: comission_score weight
             C: self_bonded weight
             D: vote_proposed_score weight
+            
+            vote_proposed_win_size: number of previous blocks that calculate the vote_proposed_score(
+                I calculate vote_proposed_score in a range of blocks rather than all blocks.
+                Therefore, I take the mean of each validators' vote_propose_score in "vote_proposed_win_size" blocks.
+
+            )
+
+            combine_win_size: number of blocks to combine (
+                In here, I get a range number of block to combine due to the large of data
+                f.g: combining 6s data to 15min data--> combine_win_size = 150
+                )
+            
+            label_win_size: number of blocks to shift(
+                In here, I get a number of future blocks, take its mean and calculate my labels
+            )
+
+
         """
         df = ETLProcessor.preprocess(df)
        
@@ -48,7 +68,7 @@ class ETLProcessor(object):
         print("Successfully converted self_bonded_score column")
         print("------------------------------------------------")
 
-        df = ETLProcessor.vote_proposed_score(df, vote_score, propose_score)
+        df = ETLProcessor.vote_proposed_score(df, vote_score, propose_score, vote_proposed_win_size)
         print("------------------------------------------------")
         print("Successfully converted vote_propose_score column")
         print("------------------------------------------------")
@@ -58,6 +78,16 @@ class ETLProcessor(object):
         print("Sucessfully converted final_score")
         print("------------------------------------------------")
 
+        df = ETLProcessor.combine_data(df,combine_win_size)
+        print("------------------------------------------------")
+        print("Sucessfully combine data")
+        print("------------------------------------------------")
+
+        df = ETLProcessor.shifting_data(df, label_win_size, combine_win_size)
+        print("------------------------------------------------")
+        print("Sucessfully shifting data")
+        print("------------------------------------------------")
+        
         return df
 
     @staticmethod
@@ -137,26 +167,26 @@ class ETLProcessor(object):
         return df
 
     @staticmethod
-    def vote_proposed_score(df: DataFrame, vote_score: int, propose_score: int):
+    def vote_proposed_score(df: DataFrame, vote_score: int, propose_score: int, vote_proposed_win_size: int):
         df = df.withColumn("vote_propose_point", vote_score * df.vote + propose_score * df.propose)
+        size = vote_proposed_win_size-1
 
         vote_propose_score_df = df.select("operator_address", "block_height", "vote_propose_point").orderBy(
             "operator_address", "block_height"
         )
 
-        cummulative_window = Window.partitionBy("operator_address").orderBy("block_height").rangeBetween(-599, 0)
+        cummulative_window = Window.partitionBy("operator_address").orderBy("block_height").rangeBetween(-size, 0)
         ### Window for moving average step
-        ### Step now row and last 599 row
+        ### Step now row and last "size" row
 
         lag_window = Window.partitionBy("operator_address").orderBy("block_height")
         ### Window for lag to check the null
 
         vote_propose_score_df = vote_propose_score_df.withColumn(
-            ### Note that lag requires both column and lag amount to be specified
-            ### It is possible to lag a column which was not the orderBy column
+            ### Using lag to get the null - rows that do not change
             "vote_propose_score",
             F.when(
-                F.lag("vote_propose_point", 599).over(lag_window).isNotNull(), F.sum("vote_propose_point").over(cummulative_window)
+                F.lag("vote_propose_point", size).over(lag_window).isNotNull(), F.sum("vote_propose_point").over(cummulative_window)
             ),
         )
 
@@ -194,3 +224,57 @@ class ETLProcessor(object):
     def prefix_data(df: DataFrame):
         df = df.withColumn("commission_rate", (F.col("commission_rate")/10**18))
         return df       
+
+
+    @staticmethod
+    def combine_data(df: DataFrame, combine_win_size: int):
+        window = Window.partitionBy("operator_address").orderBy("block_height")
+        #take window(rolling) 
+        df = df.withColumn(
+            #tagging group of window size block(f.g: block1+2+3+4-> group:0, block5+6+7+8-> group:1)
+            "new_block",F.floor((F.row_number().over(window)-1)/combine_win_size)
+        )
+            #groupby each group
+        df = (df.groupBy("new_block", "operator_address")
+            .agg({
+                "tokens": "mean",
+                "commission_rate": "mean",
+                "delegator_shares": "mean",
+                "self_bonded": "mean",
+                "tokens_proportion": "mean",
+                "voting_power_score": "mean",
+                "comission_score": "mean",
+                "self_bonded_score": "mean",
+                "vote_propose_score": "mean",
+                "score": "mean",
+            }) 
+            .withColumnRenamed("avg(tokens)", "tokens") 
+            .withColumnRenamed("avg(commission_rate)", "commission_rate") 
+            .withColumnRenamed("avg(delegator_shares)", "delegator_shares") 
+            .withColumnRenamed("avg(self_bonded)", "self_bonded") 
+            .withColumnRenamed("avg(tokens_proportion)", "tokens_proportion") 
+            .withColumnRenamed("avg(voting_power_score)", "voting_power_score") 
+            .withColumnRenamed("avg(comission_score)", "comission_score") 
+            .withColumnRenamed("avg(self_bonded_score)", "self_bonded_score") 
+            .withColumnRenamed("avg(vote_propose_score)", "vote_propose_score") 
+            .withColumnRenamed("avg(score)", "score") 
+            .orderBy("new_block")
+        )
+        #finish combining
+        return df
+
+    def shifting_data(df: DataFrame, label_win_size: int, combine_win_size: int):
+        size = int(label_win_size/combine_win_size) # As we'll shift data after combining the data
+        window = Window.partitionBy("operator_address").orderBy("new_block").rangeBetween(0, size)
+        #window is used for shifting "size" blocks and calculate the mean
+        lag_window = Window.partitionBy("operator_address").orderBy("new_block")
+        #lag_window is used for getting the null blocks - the last blocks that do not change
+
+        df = df.withColumn(
+            "new_score", F.when(
+                        F.lag("score", -size).over(lag_window).isNotNull(), F.mean("score").over(window)
+        ))\
+        .orderBy("new_block")
+        df = df.drop("score")
+        df = df.na.drop()
+        return df

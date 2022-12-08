@@ -1,5 +1,6 @@
 from pyspark.sql import SparkSession, DataFrame
 from typing import Union
+import psycopg2
 
 
 def get_spark(psql_jar_path: str="./lib/postgresql-42.5.0.jar") -> SparkSession:
@@ -77,4 +78,22 @@ def upload(
     df.mode(mode).save()
 
 
+def psql_connect(host, port, database, user, password):
+    return psycopg2.connect(
+        host=host, 
+        port=port,
+        database=database, 
+        user=user, 
+        password=password,
+    )
+    
+
+def get_max_height(cur, table):
+    cur.execute(f"select max(block_height) from {table};")
+    return cur.fetchall()[0][0]
+
+
+def get_min_height(cur, table):
+    cur.execute(f"select min(block_height) from {table};")
+    return cur.fetchall()[0][0]
 

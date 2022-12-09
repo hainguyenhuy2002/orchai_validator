@@ -273,7 +273,7 @@ class ETLProcessor(object):
         #lag_window is used for getting the null blocks - the last blocks that do not change
 
         df = df.withColumn(
-            "new_score", F.when(
+            "label", F.when(
                         F.lag("score", -size).over(lag_window).isNotNull(), F.mean("score").over(window)
         ))\
         .orderBy("block_height")

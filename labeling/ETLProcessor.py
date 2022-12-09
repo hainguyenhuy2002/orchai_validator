@@ -87,6 +87,8 @@ class ETLProcessor(object):
         print("------------------------------------------------")
         print("Sucessfully shifting data")
         print("------------------------------------------------")
+
+        df = df.drop("new_block")
         
         return df
 
@@ -261,22 +263,22 @@ class ETLProcessor(object):
             .withColumnRenamed("avg(vote_propose_score)", "vote_propose_score") 
             .withColumnRenamed("avg(score)", "score") 
         )
-        df = df.drop("new_block")
+        # df = df.drop("new_block")
         #finish combining
         return df
 
     def shifting_data(df: DataFrame, label_win_size: int, combine_win_size: int):
         size = int(label_win_size/combine_win_size) # As we'll shift data after combining the data
-        window = Window.partitionBy("operator_address").orderBy("block_height").rangeBetween(0, size)
+        window = Window.partitionBy("operator_address").orderBy("new_block").rangeBetween(0, size)
         #window is used for shifting "size" blocks and calculate the mean
-        lag_window = Window.partitionBy("operator_address").orderBy("block_height")
+        lag_window = Window.partitionBy("operator_address").orderBy("new_block")
         #lag_window is used for getting the null blocks - the last blocks that do not change
 
         df = df.withColumn(
             "label", F.when(
                         F.lag("score", -size).over(lag_window).isNotNull(), F.mean("score").over(window)
         ))\
-        .orderBy("block_height")
+        .orderBy("new_block")
         # df = df.drop("score")
         df = df.na.drop()
         return df

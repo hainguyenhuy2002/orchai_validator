@@ -14,3 +14,8 @@ create table block_label (
     score double precision,
     primary key (block_height, operator_address)
 );
+
+
+select count(*) from public.block_label;
+
+select count(*) from (select distinct block_height from public.block_label) as t;

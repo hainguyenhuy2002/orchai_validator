@@ -27,4 +27,4 @@ hp:
     combine_win_size: 150  
     label_win_size: 100800 
   upload:
-    batch_size: 1999
+    batch_size: 149999

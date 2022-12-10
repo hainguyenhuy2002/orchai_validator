@@ -83,7 +83,7 @@ def parse_ckpt(ckpt_file):
 def upload_batch(
     spark, config, start_block, global_end_block, batch_size, vote_proposed_win_size, combine_win_size, label_win_size, min_block
 ):
-    assert batch_size >= vote_proposed_win_size
+    assert batch_size >= vote_proposed_win_size + combine_win_size + label_win_size
     assert label_win_size % combine_win_size == 0
     assert (batch_size - vote_proposed_win_size + 1) % combine_win_size == 0
 
@@ -100,7 +100,11 @@ def upload_batch(
         
         if batch_start > batch_end:
             return None
+        
+        if batch_size < vote_proposed_win_size + combine_win_size + label_win_size:
+            return None
         process_logger.write("Done")
+
 
     process_logger.write("Start uploading from", batch_start, "to", batch_end, "/", global_end_block, "| batch size =", batch_size)
     df = sampling(spark, config, batch_start, batch_end)
@@ -136,7 +140,7 @@ def main(config, start_block: int, end_block: int, checkpoint: str = None):
     label_win_size = config.hp.etl.label_win_size
     batch_size = config.hp.upload.batch_size
 
-    assert batch_size >= vote_proposed_win_size
+    assert batch_size >= vote_proposed_win_size + combine_win_size + label_win_size
     assert label_win_size % combine_win_size == 0
     assert (batch_size - vote_proposed_win_size + 1) % combine_win_size == 0
 

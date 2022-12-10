@@ -30,7 +30,7 @@ class ETLProcessor(object):
             propose_score: score for each propose(Hyperparameter to calculate vote_proposed_score)
 
             A: voting_power_score weight
-            B: comission_score weight
+            B: commission_score weight
             C: self_bonded weight
             D: vote_proposed_score weight
             
@@ -142,8 +142,8 @@ class ETLProcessor(object):
 
     @staticmethod
     def commission_score(df: DataFrame, accept_rate: float):
-        df = df.withColumn("comission_score", 1 - df.commission_rate / accept_rate)
-        df = df.withColumn("comission_score", F.when(df.commission_rate > accept_rate, 0).otherwise(df.comission_score))
+        df = df.withColumn("commission_score", 1 - df.commission_rate / accept_rate)
+        df = df.withColumn("commission_score", F.when(df.commission_rate > accept_rate, 0).otherwise(df.commission_score))
 
         return df
 
@@ -211,7 +211,7 @@ class ETLProcessor(object):
     @staticmethod
     def final_score(df: DataFrame, A: int, B: int, C: int, D: int):
         df = df.withColumn(
-            "score", A * df.voting_power_score + B * df.comission_score + C * df.self_bonded_score + D * df.vote_propose_score
+            "score", A * df.voting_power_score + B * df.commission_score + C * df.self_bonded_score + D * df.vote_propose_score
         )
 
         ### Jailed = True -> score = 0
@@ -246,7 +246,7 @@ class ETLProcessor(object):
                 "self_bonded": "mean",
                 "tokens_proportion": "mean",
                 "voting_power_score": "mean",
-                "comission_score": "mean",
+                "commission_score": "mean",
                 "self_bonded_score": "mean",
                 "vote_propose_score": "mean",
                 "score": "mean",
@@ -258,7 +258,7 @@ class ETLProcessor(object):
             .withColumnRenamed("avg(self_bonded)", "self_bonded") 
             .withColumnRenamed("avg(tokens_proportion)", "tokens_proportion") 
             .withColumnRenamed("avg(voting_power_score)", "voting_power_score") 
-            .withColumnRenamed("avg(comission_score)", "comission_score") 
+            .withColumnRenamed("avg(commission_score)", "commission_score") 
             .withColumnRenamed("avg(self_bonded_score)", "self_bonded_score") 
             .withColumnRenamed("avg(vote_propose_score)", "vote_propose_score") 
             .withColumnRenamed("avg(score)", "score") 

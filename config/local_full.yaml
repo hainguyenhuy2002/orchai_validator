@@ -6,12 +6,12 @@ src:
   database: "orchai"
   table: "public.validator_block"
 dest:
-  host: "103.160.75.28"
+  host: "127.0.0.1"
   port: 5432
-  user: "orchai_rw"
-  password: "travaorchai_rw123"
+  user: "postgres"
+  password: "dbadmin"
   database: "orchai"
-  table: "public.block_label"
+  table: "block_label"
   batchsize: 1000
 hp:
   etl:

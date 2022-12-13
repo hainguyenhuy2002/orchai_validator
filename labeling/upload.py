@@ -80,53 +80,31 @@ def parse_ckpt(ckpt_file):
         return None, None
 
 
-def upload_batch(
-    spark, config, start_block, global_end_block, batch_size, vote_proposed_win_size, combine_win_size, label_win_size, min_block
-):
+def get_batch_intervals(start_block, global_end_block, batch_size, vote_proposed_win_size, combine_win_size, label_win_size, min_block):
     assert batch_size >= vote_proposed_win_size + combine_win_size + label_win_size
     assert label_win_size % combine_win_size == 0
     assert (batch_size - vote_proposed_win_size + 1) % combine_win_size == 0
 
-    batch_start = max(min_block, start_block - vote_proposed_win_size + 1)
-    batch_end = batch_start + batch_size - 1
-
-    return_none = False
-    if batch_end > global_end_block:
-        process_logger.write("Find smaller batch size")
-        batch_size = global_end_block - batch_start + 1
-        batch_size = (batch_size - vote_proposed_win_size + 1) // combine_win_size * combine_win_size + vote_proposed_win_size - 1
+    intervals = []
+    while start_block <= global_end_block:
+        batch_start = max(min_block, start_block - vote_proposed_win_size + 1)
         batch_end = batch_start + batch_size - 1
-        return_none = True
         
-        if batch_start > batch_end:
-            return None
-        
-        if batch_size < vote_proposed_win_size + combine_win_size + label_win_size:
-            return None
-        process_logger.write("Done")
+        if batch_end > global_end_block:
+            batch_size = global_end_block - batch_start + 1
+            batch_size = (batch_size - vote_proposed_win_size + 1) // combine_win_size * combine_win_size + vote_proposed_win_size - 1
+            batch_end = batch_start + batch_size - 1
+            
+            if batch_start > batch_end:
+                break
+            
+            if batch_size < vote_proposed_win_size + combine_win_size + label_win_size:
+                break
 
-
-    process_logger.write("Start uploading from", batch_start, "to", batch_end, "/", global_end_block, "| batch size =", batch_size)
-    df = sampling(spark, config, batch_start, batch_end)
-
-    # df.agg({"block_height": "min"}).show(1)
-    # df.agg({"block_height": "max"}).show(1)
+        intervals.append((batch_start, batch_end))
+        start_block = batch_end - label_win_size + 1
     
-    process_logger.write("Start ETL processing")
-    df = ETLProcessor.data_scoring(df, **config.hp.etl)
-
-    # df.agg({"block_height": "min"}).show(1)
-    # df.agg({"block_height": "max"}).show(1)
-    
-    process_logger.write("Uploading data to database")
-    uploading(df, config)
-
-    process_logger.write("Done")
-    log_ckpt(batch_start, batch_end)
-
-    if return_none:
-        return None
-    return batch_end - label_win_size + 1
+    return intervals
 
 
 def main(config, start_block: int, end_block: int, checkpoint: str = None):
@@ -174,20 +152,29 @@ def main(config, start_block: int, end_block: int, checkpoint: str = None):
     min_block = get_min_height(psql_connect(**config.src).cursor(), config.src.table)
     spark = get_spark()
 
-    while start_block is not None and start_block <= end_block:
+    intervals = get_batch_intervals(
+        start_block=start_block,
+        global_end_block=end_block,
+        batch_size=batch_size,
+        vote_proposed_win_size=vote_proposed_win_size,
+        combine_win_size=combine_win_size,
+        label_win_size=label_win_size,
+        min_block=min_block)
+
+    for idx, (batch_start, batch_end) in enumerate(intervals):
         __start_time = time.time()
 
-        start_block = upload_batch(
-            spark=spark,
-            config=config,
-            start_block=start_block,
-            global_end_block=end_block,
-            batch_size=batch_size,
-            vote_proposed_win_size=vote_proposed_win_size,
-            combine_win_size=combine_win_size,
-            label_win_size=label_win_size,
-            min_block=min_block
-        )
+        process_logger.write("Start uploading from", batch_start, "to", batch_end, "| interval:", idx + 1, "/", len(intervals), "| batch size =", batch_size)
+        df = sampling(spark, config, batch_start, batch_end)
+        
+        process_logger.write("Start ETL processing")
+        df = ETLProcessor.data_scoring(df, **config.hp.etl)
+        
+        process_logger.write("Uploading data to database")
+        uploading(df, config)
+
+        process_logger.write("Done")
+        log_ckpt(batch_start, batch_end)
 
         __duration = time.time() - __start_time
         process_logger.write("Duration:", __duration, "\n")

@@ -3,6 +3,9 @@ from typing import Union
 import psycopg2
 
 
+__psql_connect__ = {}
+
+
 def get_spark(psql_jar_path: str="./lib/postgresql-42.5.0.jar") -> SparkSession:
     """
     Args:
@@ -78,14 +81,19 @@ def upload(
     df.mode(mode).save()
 
 
-def psql_connect(host, port, database, user, password):
-    return psycopg2.connect(
-        host=host, 
-        port=port,
-        database=database, 
-        user=user, 
-        password=password,
-    )
+def psql_connect(host, port, database, user, password, **kwargs):
+    key = "#".join([str(s) for s in [host, port, database, user, password]])
+
+    if __psql_connect__.get(key) is None:
+        __psql_connect__[key] = psycopg2.connect(
+            host=host, 
+            port=port,
+            database=database, 
+            user=user, 
+            password=password,
+        )
+
+    return __psql_connect__[key]
     
 
 def get_max_height(cur, table):

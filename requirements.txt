@@ -1,2 +1,3 @@
 pyspark
 omegaconf
+psycopg2-binary

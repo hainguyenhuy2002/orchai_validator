@@ -14,6 +14,9 @@ class ETLProcessor(object):
         B: int,
         C: int,
         D: int,
+        start_block: int, 
+        end_block: int, 
+        top_validators: int,
         vote_proposed_win_size: int,
         combine_win_size: int,
         label_win_size: int
@@ -30,9 +33,20 @@ class ETLProcessor(object):
             propose_score: score for each propose(Hyperparameter to calculate vote_proposed_score)
 
             A: voting_power_score weight
-            B: comission_score weight
+            B: commission_score weight
             C: self_bonded weight
             D: vote_proposed_score weight
+
+            start_block, end_block, top_validators: I use these three parameters to filter the whole data with specific number of top validators. To choose the top validators, I make a survey on a small batch of data, calculate and then rank them in that small data.
+            (
+                start_block: the first block to make a survey
+                end_block: the last block that make a survey
+                top_validators: the number of top validators that data filter
+
+
+            )
+            
+            
             
             vote_proposed_win_size: number of previous blocks that calculate the vote_proposed_score(
                 I calculate vote_proposed_score in a range of blocks rather than all blocks.
@@ -77,6 +91,12 @@ class ETLProcessor(object):
         print("------------------------------------------------")
         print("Sucessfully converted final_score")
         print("------------------------------------------------")
+        
+
+        df = ETLProcessor.validator_filter(df, start_block, end_block, top_validators)
+        print("------------------------------------------------")
+        print("Sucessfully filter data")
+        print("------------------------------------------------")
 
         df = ETLProcessor.combine_data(df,combine_win_size)
         print("------------------------------------------------")
@@ -87,6 +107,8 @@ class ETLProcessor(object):
         print("------------------------------------------------")
         print("Sucessfully shifting data")
         print("------------------------------------------------")
+
+        df = df.drop("new_block")
         
         return df
 
@@ -140,8 +162,8 @@ class ETLProcessor(object):
 
     @staticmethod
     def commission_score(df: DataFrame, accept_rate: float):
-        df = df.withColumn("comission_score", 1 - df.commission_rate / accept_rate)
-        df = df.withColumn("comission_score", F.when(df.commission_rate > accept_rate, 0).otherwise(df.comission_score))
+        df = df.withColumn("commission_score", 1 - df.commission_rate / accept_rate)
+        df = df.withColumn("commission_score", F.when(df.commission_rate > accept_rate, 0).otherwise(df.commission_score))
 
         return df
 
@@ -209,7 +231,7 @@ class ETLProcessor(object):
     @staticmethod
     def final_score(df: DataFrame, A: int, B: int, C: int, D: int):
         df = df.withColumn(
-            "score", A * df.voting_power_score + B * df.comission_score + C * df.self_bonded_score + D * df.vote_propose_score
+            "score", A * df.voting_power_score + B * df.commission_score + C * df.self_bonded_score + D * df.vote_propose_score
         )
 
         ### Jailed = True -> score = 0
@@ -227,6 +249,26 @@ class ETLProcessor(object):
 
 
     @staticmethod
+    def validator_filter(df, start_block: int, end_block: int, top_validators: int):
+
+        top = df.filter(
+        df.block_height.between(start_block,end_block)).\
+        groupBy("operator_address").agg({"score": "mean"}).\
+        orderBy(F.col("avg(score)").desc())
+
+        list = []
+        for i in top.head(top_validators):
+            list.append(i.operator_address)
+
+        df = df.filter(
+            df.operator_address.isin(list)
+        )
+
+        return df
+
+
+
+    @staticmethod
     def combine_data(df: DataFrame, combine_win_size: int):
         window = Window.partitionBy("operator_address").orderBy("block_height")
         #take window(rolling) 
@@ -237,44 +279,49 @@ class ETLProcessor(object):
             #groupby each group
         df = (df.groupBy("new_block", "operator_address")
             .agg({
+                "block_height": "min",
                 "tokens": "mean",
                 "commission_rate": "mean",
                 "delegator_shares": "mean",
                 "self_bonded": "mean",
                 "tokens_proportion": "mean",
                 "voting_power_score": "mean",
-                "comission_score": "mean",
+                "commission_score": "mean",
                 "self_bonded_score": "mean",
                 "vote_propose_score": "mean",
                 "score": "mean",
             }) 
+            .withColumnRenamed("min(block_height)", "block_height") 
             .withColumnRenamed("avg(tokens)", "tokens") 
             .withColumnRenamed("avg(commission_rate)", "commission_rate") 
             .withColumnRenamed("avg(delegator_shares)", "delegator_shares") 
             .withColumnRenamed("avg(self_bonded)", "self_bonded") 
             .withColumnRenamed("avg(tokens_proportion)", "tokens_proportion") 
             .withColumnRenamed("avg(voting_power_score)", "voting_power_score") 
-            .withColumnRenamed("avg(comission_score)", "comission_score") 
+            .withColumnRenamed("avg(commission_score)", "commission_score") 
             .withColumnRenamed("avg(self_bonded_score)", "self_bonded_score") 
             .withColumnRenamed("avg(vote_propose_score)", "vote_propose_score") 
             .withColumnRenamed("avg(score)", "score") 
-            .orderBy("new_block")
         )
+        # df = df.drop("new_block")
         #finish combining
         return df
-
+    @staticmethod
     def shifting_data(df: DataFrame, label_win_size: int, combine_win_size: int):
+        assert label_win_size% combine_win_size == 0, "combine_win_size must be divisible by label_win_size"
         size = int(label_win_size/combine_win_size) # As we'll shift data after combining the data
+        
         window = Window.partitionBy("operator_address").orderBy("new_block").rangeBetween(0, size)
         #window is used for shifting "size" blocks and calculate the mean
         lag_window = Window.partitionBy("operator_address").orderBy("new_block")
         #lag_window is used for getting the null blocks - the last blocks that do not change
 
         df = df.withColumn(
-            "new_score", F.when(
+            "label", F.when(
                         F.lag("score", -size).over(lag_window).isNotNull(), F.mean("score").over(window)
         ))\
         .orderBy("new_block")
-        df = df.drop("score")
+        # df = df.drop("score")
         df = df.na.drop()
         return df
+

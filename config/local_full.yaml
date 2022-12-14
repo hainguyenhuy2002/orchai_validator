@@ -4,9 +4,7 @@ src:
   user: "orchai_rw"
   password: "travaorchai_rw123"
   database: "orchai"
-  # table: "public.validator_block"
-
-  table: "(select * from public.validator_block where block_height >= 7050501 and block_height <= 7052499 order by block_height) as t"
+  table: "public.validator_block"
 dest:
   host: "127.0.0.1"
   port: 5432

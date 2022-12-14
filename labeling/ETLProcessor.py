@@ -14,6 +14,9 @@ class ETLProcessor(object):
         B: int,
         C: int,
         D: int,
+        start_block: int, 
+        end_block: int, 
+        top_validators: int,
         vote_proposed_win_size: int,
         combine_win_size: int,
         label_win_size: int
@@ -33,6 +36,17 @@ class ETLProcessor(object):
             B: comission_score weight
             C: self_bonded weight
             D: vote_proposed_score weight
+
+            start_block, end_block, top_validators: I use these three parameters to filter the whole data with specific number of top validators. To choose the top validators, I make a survey on a small batch of data, calculate and then rank them in that small data.
+            (
+                start_block: the first block to make a survey
+                end_block: the last block that make a survey
+                top_validators: the number of top validators that data filter
+
+
+            )
+            
+            
             
             vote_proposed_win_size: number of previous blocks that calculate the vote_proposed_score(
                 I calculate vote_proposed_score in a range of blocks rather than all blocks.
@@ -76,6 +90,12 @@ class ETLProcessor(object):
         df = ETLProcessor.final_score(df, A, B, C, D)
         print("------------------------------------------------")
         print("Sucessfully converted final_score")
+        print("------------------------------------------------")
+        
+
+        df = ETLProcessor.validator_filter(df, start_block, end_block, top_validators)
+        print("------------------------------------------------")
+        print("Sucessfully filter data")
         print("------------------------------------------------")
 
         df = ETLProcessor.combine_data(df,combine_win_size)
@@ -229,6 +249,26 @@ class ETLProcessor(object):
 
 
     @staticmethod
+    def validator_filter(df, start_block: int, end_block: int, top_validators: int):
+
+        top = df.filter(
+        df.block_height.between(start_block,end_block)).\
+        groupBy("operator_address").agg({"score": "mean"}).\
+        orderBy(F.col("avg(score)").desc())
+
+        list = []
+        for i in top.head(top_validators):
+            list.append(i.operator_address)
+
+        df = df.filter(
+            df.operator_address.isin(list)
+        )
+
+        return df
+
+
+
+    @staticmethod
     def combine_data(df: DataFrame, combine_win_size: int):
         window = Window.partitionBy("operator_address").orderBy("block_height")
         #take window(rolling) 
@@ -266,9 +306,11 @@ class ETLProcessor(object):
         # df = df.drop("new_block")
         #finish combining
         return df
-
+    @staticmethod
     def shifting_data(df: DataFrame, label_win_size: int, combine_win_size: int):
+        assert label_win_size% combine_win_size == 0, "combine_win_size must be divisible by label_win_size"
         size = int(label_win_size/combine_win_size) # As we'll shift data after combining the data
+        
         window = Window.partitionBy("operator_address").orderBy("new_block").rangeBetween(0, size)
         #window is used for shifting "size" blocks and calculate the mean
         lag_window = Window.partitionBy("operator_address").orderBy("new_block")
@@ -282,3 +324,4 @@ class ETLProcessor(object):
         # df = df.drop("score")
         df = df.na.drop()
         return df
+

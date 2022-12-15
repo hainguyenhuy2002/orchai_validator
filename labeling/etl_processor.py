@@ -14,9 +14,6 @@ class ETLProcessor(object):
         B: int,
         C: int,
         D: int,
-        start_block: int, 
-        end_block: int, 
-        top_validators: int,
         vote_proposed_win_size: int,
         combine_win_size: int,
         label_win_size: int
@@ -38,13 +35,6 @@ class ETLProcessor(object):
             D: vote_proposed_score weight
 
             start_block, end_block, top_validators: I use these three parameters to filter the whole data with specific number of top validators. To choose the top validators, I make a survey on a small batch of data, calculate and then rank them in that small data.
-            (
-                start_block: the first block to make a survey
-                end_block: the last block that make a survey
-                top_validators: the number of top validators that data filter
-
-
-            )
             
             
             
@@ -93,20 +83,20 @@ class ETLProcessor(object):
         print("------------------------------------------------")
         
 
-        # df = ETLProcessor.validator_filter(df, start_block, end_block, top_validators)
-        # print("------------------------------------------------")
-        # print("Sucessfully filter data")
-        # print("------------------------------------------------")
+        df = ETLProcessor.validator_filter(df)
+        print("------------------------------------------------")
+        print("Sucessfully filter data")
+        print("------------------------------------------------")
 
-        # df = ETLProcessor.combine_data(df,combine_win_size)
-        # print("------------------------------------------------")
-        # print("Sucessfully combine data")
-        # print("------------------------------------------------")
+        df = ETLProcessor.combine_data(df,combine_win_size)
+        print("------------------------------------------------")
+        print("Sucessfully combine data")
+        print("------------------------------------------------")
 
-        # df = ETLProcessor.shifting_data(df, label_win_size, combine_win_size)
-        # print("------------------------------------------------")
-        # print("Sucessfully shifting data")
-        # print("------------------------------------------------")
+        df = ETLProcessor.shifting_data(df, label_win_size, combine_win_size)
+        print("------------------------------------------------")
+        print("Sucessfully shifting data")
+        print("------------------------------------------------")
 
         df = df.drop("new_block")
         
@@ -249,17 +239,46 @@ class ETLProcessor(object):
 
 
     @staticmethod
-    def validator_filter(df, start_block: int, end_block: int, top_validators: int):
-
-        top = df.filter(
-        df.block_height.between(start_block,end_block)).\
-        groupBy("operator_address").agg({"score": "mean"}).\
-        orderBy(F.col("avg(score)").desc())
-
-        list = []
-        for i in top.head(top_validators):
-            list.append(i.operator_address)
-
+    def validator_filter(df):
+        list = ["oraivaloper18tf4uwrkcd4qk87jz3n0ruhsdzeg3fmdsdaw04",
+                "oraivaloper102rpf06zhyrfps4qzvehqjtr7rh52us5z2959t",
+                "oraivaloper10z9f6539v0ge78xlm4yh7tddrvw445s6d7s2xq",
+                "oraivaloper1zwxeq68hunufljymhy0f0x7r2vvh9mu2hh8nt8",
+        "oraivaloper1yujklf8xlcngsdylgqj352pj9x3yvrrwf3spc8",
+        "oraivaloper1mrv57zj3dpfyc9yd5xptnz2tqfez9fss4c9r85",
+        "oraivaloper17zr98cwzfqdwh69r8v5nrktsalmgs5sa83gpd9",
+        "oraivaloper1n4xkr4k4rpynp020e8xfqwm2e95g7rzx7w6kgl",
+        "oraivaloper1nedr7579x9dp6s3rrt7n5a5s5qczpnnstanuk5",
+        "oraivaloper16spaytw7nhdrv9lar0quwj6eex8cw9pvmtynxd",
+        "oraivaloper1asz5wl5c2xt8y5kyp9r04v54zh77pq90qar7e8",
+        "oraivaloper1djm07np8dzyg4et3d7dqtr3692l80nggvl0edh",
+        "oraivaloper1ucx0gm8kca2zvyr9d39z249j62y2t8r0rwtmr6",
+        "oraivaloper1ch3ewye24zm094ygmxu5e4z7d0xre3vhthctpn",
+        "oraivaloper1w96q7rrd6edc3fpmw6zayzdf5ajzucrnw3pt3s",
+        "oraivaloper1v26tdegnk79edw7xkk2xh8qn89vy6qej6yhsev",
+        "oraivaloper1kh9vejqxqqccavtv2nf683mx0z85mfpd7q566q",
+        "oraivaloper1d2ths86a84rxpp7s9j64qgrypntw2pn7lndfgs",
+        "oraivaloper1xsptthm2ylfw0salut97ldfan2jt032nye7s00",
+        "oraivaloper1qv5jn7tueeqw7xqdn5rem7s09n7zletreera88",
+        "oraivaloper16e6cpk6ycddk6208fpaya7tmmardhvr7h40yqy",
+        "oraivaloper10n3fs6fkl4fp9dcsdfl2vl3ay7pk7snntfg7da",
+        "oraivaloper130jsl66rgss6eq7qur02yfr6tzppdvxglz7n7g",
+        "oraivaloper1yc9nysml8dxy447hp3aytr0nssr9pd9a47l7gx",
+        "oraivaloper109vcny07r3waj9sld4ejasjyal0rudskeax7uc",
+        "oraivaloper1h89umsrsstyeuet8kllwvf2tp630n77aymck78",
+        "oraivaloper1mxqeldsxg60t2y6gngpdm5jf3k96dnju5el96f",
+        "oraivaloper1rqq57xt5r5pnuguffcrltnvkul7n0jdxxdgey0",
+        "oraivaloper1uhcwtfntsvk8gpwfxltesyl4e28aalmq9v9z0x",
+        "oraivaloper1xesqr8vjvy34jhu027zd70ypl0nnev5euy9nyl",
+        "oraivaloper1cp0jml5fxkdvmajcwvkue9d0sym6s0vqly88hg",
+        "oraivaloper1u2344d8jwtsx5as7u5jw7vel28puh34q7d3y64",
+        "oraivaloper1f6q9wjn8qp3ll8y8ztd8290vtec2yxyxxygyy2",
+        "oraivaloper1h9gg3xavqdau6uy3r36vn4juvzsg0lqvszgtvc",
+        "oraivaloper14nz2pqskfv9kcez8u0a9gnnsgwjerzqxpmne0y",
+        "oraivaloper1m2d5uhr65p9vvlw2w29kajud5q529a76v22wyu",
+        "oraivaloper13ckyvg0ah9vuujtd49yner2ky92lej6nwjvrjv",
+        "oraivaloper12ru3276mkzuuay6vhmg3t6z9hpvrsnplm2994n",
+        "oraivaloper14vcw5qk0tdvknpa38wz46js5g7vrvut8ku5kaa"]
         df = df.filter(
             df.operator_address.isin(list)
         )

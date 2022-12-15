@@ -26,5 +26,6 @@ hp:
     vote_proposed_win_size: 14400  
     combine_win_size: 150  
     label_win_size: 100800 
+    top_validators: 50
   upload:
     batch_size: 149999

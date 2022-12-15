@@ -46,8 +46,6 @@ class ETLProcessor(object):
 
             )
             
-            
-            
             vote_proposed_win_size: number of previous blocks that calculate the vote_proposed_score(
                 I calculate vote_proposed_score in a range of blocks rather than all blocks.
                 Therefore, I take the mean of each validators' vote_propose_score in "vote_proposed_win_size" blocks.
@@ -92,7 +90,6 @@ class ETLProcessor(object):
         print("Sucessfully converted final_score")
         print("------------------------------------------------")
         
-
         df = ETLProcessor.validator_filter(df, start_block, end_block, top_validators)
         print("------------------------------------------------")
         print("Sucessfully filter data")
@@ -247,7 +244,6 @@ class ETLProcessor(object):
         df = df.withColumn("commission_rate", (F.col("commission_rate")/10**18))
         return df       
 
-
     @staticmethod
     def validator_filter(df, start_block: int, end_block: int, top_validators: int):
 
@@ -265,8 +261,6 @@ class ETLProcessor(object):
         )
 
         return df
-
-
 
     @staticmethod
     def combine_data(df: DataFrame, combine_win_size: int):
@@ -306,6 +300,7 @@ class ETLProcessor(object):
         # df = df.drop("new_block")
         #finish combining
         return df
+
     @staticmethod
     def shifting_data(df: DataFrame, label_win_size: int, combine_win_size: int):
         assert label_win_size% combine_win_size == 0, "combine_win_size must be divisible by label_win_size"
@@ -319,8 +314,7 @@ class ETLProcessor(object):
         df = df.withColumn(
             "label", F.when(
                         F.lag("score", -size).over(lag_window).isNotNull(), F.mean("score").over(window)
-        ))\
-        .orderBy("new_block")
+        )).orderBy("new_block")
         # df = df.drop("score")
         df = df.na.drop()
         return df

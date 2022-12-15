@@ -93,20 +93,20 @@ class ETLProcessor(object):
         print("------------------------------------------------")
         
 
-        df = ETLProcessor.validator_filter(df, start_block, end_block, top_validators)
-        print("------------------------------------------------")
-        print("Sucessfully filter data")
-        print("------------------------------------------------")
+        # df = ETLProcessor.validator_filter(df, start_block, end_block, top_validators)
+        # print("------------------------------------------------")
+        # print("Sucessfully filter data")
+        # print("------------------------------------------------")
 
-        df = ETLProcessor.combine_data(df,combine_win_size)
-        print("------------------------------------------------")
-        print("Sucessfully combine data")
-        print("------------------------------------------------")
+        # df = ETLProcessor.combine_data(df,combine_win_size)
+        # print("------------------------------------------------")
+        # print("Sucessfully combine data")
+        # print("------------------------------------------------")
 
-        df = ETLProcessor.shifting_data(df, label_win_size, combine_win_size)
-        print("------------------------------------------------")
-        print("Sucessfully shifting data")
-        print("------------------------------------------------")
+        # df = ETLProcessor.shifting_data(df, label_win_size, combine_win_size)
+        # print("------------------------------------------------")
+        # print("Sucessfully shifting data")
+        # print("------------------------------------------------")
 
         df = df.drop("new_block")
         

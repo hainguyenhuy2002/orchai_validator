@@ -15,10 +15,13 @@ def log_ckpt(start, end):
 
 
 def sampling(spark, config, from_block: int, to_block: int):
+    with open("config/validators.txt", 'r') as f:
+        validators = f.read().split()
+        
     table = f"""(
             select * from {config.src.table} 
-            where block_height >= {from_block} 
-                and block_height <= {to_block}
+            where block_height >= {from_block} and block_height <= {to_block}
+                and operator_address in ({", ".join([f"'{v}'" for v in validators])})
             order by block_height 
         ) as t
     """

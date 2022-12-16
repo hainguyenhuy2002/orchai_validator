@@ -101,7 +101,7 @@ def get_batch_intervals(start_block, global_end_block, batch_size, vote_proposed
             if batch_start > batch_end:
                 break
             
-            if batch_size < vote_proposed_win_size + combine_win_size + label_win_size:
+            if batch_size < vote_proposed_win_size + combine_win_size + label_win_size - 1:
                 break
 
         intervals.append((batch_start, batch_end))

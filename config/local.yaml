@@ -4,9 +4,7 @@ src:
   user: "orchai_rw"
   password: "travaorchai_rw123"
   database: "orchai"
-  # table: "public.validator_block"
-
-  table: "(select * from public.validator_block where block_height >= 7050501 and block_height <= 7052499 order by block_height) as t"
+  table: "(select * from public.validator_block where block_height <= 7100000 order by block_height) as t"
 dest:
   host: "127.0.0.1"
   port: 5432
@@ -18,15 +16,12 @@ dest:
 hp:
   etl:
     accept_rate: 0.1
-    concentration_level: 0.9
-    vote_score: 2
-    propose_score: 6
+    concentration_level: 0.8
     A: 9
     B: 4
     C: 2
     D: 4
-    vote_proposed_win_size: 500 
-    combine_win_size: 20 
-    label_win_size: 60
+    vote_proposed_win_size: 600 
+    label_win_size: 1200
   upload:
     batch_size: 1999

@@ -20,7 +20,7 @@ if __name__ == "__main__":
     max_dest_height         = get_max_height(psql_connect(**args.config.dest).cursor(), args.config.dest.table)
 
     vote_proposed_win_size  = args.config.hp.etl.vote_proposed_win_size
-    combine_win_size        = args.config.hp.etl.combine_win_size
+    combine_win_size        = 150
     label_win_size          = args.config.hp.etl.label_win_size
     batch_size              = args.config.hp.upload.batch_size
 

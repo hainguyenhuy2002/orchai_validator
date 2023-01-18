@@ -16,15 +16,14 @@ dest:
 hp:
   etl:
     accept_rate: 0.1
-    concentration_level: 0.9
-    vote_score: 2
-    propose_score: 6
+    concentration_level: 0.8
     A: 9
     B: 4
     C: 2
     D: 4
     vote_proposed_win_size: 14400  
-    combine_win_size: 150  
     label_win_size: 100800 
   upload:
     batch_size: 149999
+
+# psql -U orchai_rw --host 103.160.75.28 -d orchai

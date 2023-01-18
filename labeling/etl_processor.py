@@ -38,11 +38,6 @@ class ETLProcessor(object):
                 Therefore, I take the mean of each validators' vote_propose_score in "vote_proposed_win_size" blocks.
 
             )
-
-            combine_win_size: number of blocks to combine (
-                In here, I get a range number of block to combine due to the large of data
-                f.g: combining 6s data to 15min data--> combine_win_size = 150
-                )
             
             label_win_size: number of blocks to shift(
                 In here, I get a number of future blocks, take its mean and calculate my labels
@@ -51,44 +46,37 @@ class ETLProcessor(object):
 
         """
         df = ETLProcessor.preprocess(df)
+        print("------------------------------------------------")
        
         df = ETLProcessor.voting_power_score(df)
-        print("------------------------------------------------")
         print("Successfully converted voting_power_score column")
         print("------------------------------------------------")
 
         df = ETLProcessor.commission_score(df, accept_rate)
-        print("------------------------------------------------")
         print("Successfully converted commission_score column")
         print("------------------------------------------------")
 
         df = ETLProcessor.self_bonded_score(df, concentration_level)
-        print("------------------------------------------------")
         print("Successfully converted self_bonded_score column")
         print("------------------------------------------------")
 
         df = ETLProcessor.vote_score(df, vote_proposed_win_size)
-        print("------------------------------------------------")
         print("Successfully converted vote_propose_score column")
         print("------------------------------------------------")
 
         df = ETLProcessor.final_score(df, A, B, C, D)
-        print("------------------------------------------------")
         print("Sucessfully converted final_score")
         print("------------------------------------------------")
         
         # df = ETLProcessor.validator_filter(df)
-        # print("------------------------------------------------")
         # print("Sucessfully filter data")
         # print("------------------------------------------------")
 
         # df = ETLProcessor.combine_data(df,combine_win_size)
-        # print("------------------------------------------------")
         # print("Sucessfully combine data")
         # print("------------------------------------------------")
 
         df = ETLProcessor.shifting_data(df, label_win_size)
-        print("------------------------------------------------")
         print("Sucessfully shifting data")
         print("------------------------------------------------")
 
@@ -104,53 +92,65 @@ class ETLProcessor(object):
         for c in ["jailed", "vote", "propose"]:
             df = df.withColumn(c, F.col(c).cast("integer"))
 
-        # FillNan for vote and propose
+        ### FillNan for vote and propose
         df = df.withColumn("vote", F.coalesce(F.col("vote"), F.lit(0)))
         df = df.withColumn("propose", F.coalesce(F.col("propose"), F.lit(0)))
 
         ### Number of validator in each block
         num_val_blocks_df = (
             df.groupBy("block_height")
-            .agg({"operator_address": "count"})
-            .withColumnRenamed("count(operator_address)", "validators_count_per_block")
+              .agg({"operator_address": "count"})
+              .withColumnRenamed("count(operator_address)", "validators_count_per_block")
         )
         df = df.join(num_val_blocks_df, on="block_height", how="left")
 
-        ### Number of token in each block
+        ### TOtal tokens in each block
         token_block_df = (
-            df.groupBy("block_height").agg({"tokens": "sum"}).withColumnRenamed("sum(tokens)", "total_token_amt_per_block")
+            df.groupBy("block_height")
+              .agg({"tokens": "sum"})
+              .withColumnRenamed("sum(tokens)", "total_token_amt_per_block")
         )
         df = df.join(token_block_df, on="block_height", how="left")
 
-        ### Number of self bonded in each block
+        ### Total self bonded tokens in each block
         self_bond_block_df = (
             df.groupBy("block_height")
-            .agg({"self_bonded": "sum"})
-            .withColumnRenamed("sum(self_bonded)", "total_self_bonded_amt_per_block")
+              .agg({"self_bonded": "sum"})
+              .withColumnRenamed("sum(self_bonded)", "total_self_bonded_amt_per_block")
         )
         df = df.join(self_bond_block_df, on="block_height", how="left")
 
         return df
 
     @staticmethod
+    def prefix_data(df: DataFrame):
+        df = df.withColumn("commission_rate", (F.col("commission_rate") / 10**18))
+        df = df.withColumn("self_bonded", (F.col("self_bonded") / 10**16))
+        df = df.withColumn("delegators_token", (df.tokens - df.self_bonded))
+        df = df.drop("delegator_shares")
+        return df  
+
+    @staticmethod
     def voting_power_score(df: DataFrame):
-        # Max tokens
+        ### Max tokens
         max_token_df = (
             df.groupBy("block_height")
-            .agg({"tokens": "max"})
-            .withColumnRenamed("max(tokens)", 
-            "max_tokens_per_block"))
-        #join max_tokens into dataframe
-        df = df.join(max_token_df, on = "block_height", how = "left")
+              .agg({"tokens": "max"})
+              .withColumnRenamed("max(tokens)", "max_tokens_per_block")
+        )
 
-        df = df.withColumn("tokens_proportion", df.tokens / df.total_token_amt_per_block)
+        ### Join max_tokens into dataframe
+        df = df.join(max_token_df, on="block_height", how="left")
+
         df = df.withColumn("voting_power_score", 1 - df.tokens / df.max_tokens_per_block)
         df = df.withColumn(
-            "voting_power_score", F.when(df.tokens_proportion > 2 * (1/df.validators_count_per_block), 0).otherwise(df.voting_power_score)
+            "voting_power_score", 
+            F.when(df.tokens / df.total_token_amt_per_block > (2 / df.validators_count_per_block), 0)
+             .otherwise(df.voting_power_score)
         )
         df = df.drop("max_tokens_per_block")
 
-        #checked ;)
+        ### checked ;)
         return df
 
     @staticmethod
@@ -183,22 +183,15 @@ class ETLProcessor(object):
 
     @staticmethod
     def vote_score(df: DataFrame, vote_proposed_win_size: int):
-        # df = df.withColumn("vote_propose_point", vote_score * df.vote + propose_score * df.propose)
-        # #vote, propose: TRue, False
+        assert vote_proposed_win_size % 150 == 0, "150 must be divisible by vote_proposed_win_size"
+        size = vote_proposed_win_size // 150 - 1
 
-        size = vote_proposed_win_size-1
-
-        # vote_propose_score_df = df.select("operator_address", "block_height", "vote_propose_point").orderBy(
-        #     "operator_address", "block_height"
-        # )
-        
-
-        cummulative_window = Window.partitionBy("operator_address").orderBy("block_height").rangeBetween(-size, 0)
         ### Window for moving average step
         ### Step now row and last "size" row
+        cummulative_window = Window.partitionBy("operator_address").orderBy("block_height").rangeBetween(-size, 0)
 
-        lag_window = Window.partitionBy("operator_address").orderBy("block_height")
         ### Window for lag to check the null
+        lag_window = Window.partitionBy("operator_address").orderBy("block_height")
 
         df = df.withColumn(
             ### Using lag to get the null - rows that do not change
@@ -208,8 +201,6 @@ class ETLProcessor(object):
             ),
         )
 
-        # df = df.join(vote_propose_score_df, on=["block_height", "operator_address"], how="left").orderBy("block_height")
-        # df = df.drop("vote_propose_point")
         df = df.na.drop()
 
         max_vote_score_df = (
@@ -220,13 +211,12 @@ class ETLProcessor(object):
 
         df = df.join(max_vote_score_df, on="block_height", how="left").orderBy("block_height")
         df = df.withColumn("vote_score", df.vote_score / df.max_vote_score)
+
         df = df.drop("max_vote_score")
         df = df.drop("vote")
         df = df.drop("propose")
 
-        #checked ;)
         return df
-
 
     @staticmethod
     def final_score(df: DataFrame, A: int, B: int, C: int, D: int):
@@ -240,81 +230,60 @@ class ETLProcessor(object):
         df = df.withColumn("score", F.when(df.jailed == 1, 0).otherwise(df.score))
         df = df.withColumn("score", F.when(F.col("status").rlike("UNBONDED"), 0).otherwise(df.score))
 
-        return df
-
-    @staticmethod
-    def prefix_data(df: DataFrame):
-        df = df.withColumn("commission_rate", (F.col("commission_rate")/10**18))
-        return df       
+        return df     
 
     # @staticmethod
-    # def validator_filter(df):
-        # with open("config/validators.txt", 'r') as f:
-        #     validators = f.read().split()
-
-        # print("Number of validators:", len(validators))
-
-        # df = df.filter(
-        #     df.operator_address.isin(validators)
-        # )
-
-        # return df
-
-    @staticmethod
-    def combine_data(df: DataFrame, combine_win_size: int):
-        window = Window.partitionBy("operator_address").orderBy("block_height")
-        #take window(rolling) 
-        df = df.withColumn(
-            #tagging group of window size block(f.g: block1+2+3+4-> group:0, block5+6+7+8-> group:1)
-            "new_block",F.floor((F.row_number().over(window)-1)/combine_win_size)
-        )
-            #groupby each group
-        df = (df.groupBy("new_block", "operator_address")
-            .agg({
-                "block_height": "min",
-                "tokens": "mean",
-                "commission_rate": "mean",
-                "delegator_shares": "mean",
-                "self_bonded": "mean",
-                "tokens_proportion": "mean",
-                "voting_power_score": "mean",
-                "commission_score": "mean",
-                "self_bonded_score": "mean",
-                "vote_propose_score": "mean",
-                "score": "mean",
-            }) 
-            .withColumnRenamed("min(block_height)", "block_height") 
-            .withColumnRenamed("avg(tokens)", "tokens") 
-            .withColumnRenamed("avg(commission_rate)", "commission_rate") 
-            .withColumnRenamed("avg(delegator_shares)", "delegator_shares") 
-            .withColumnRenamed("avg(self_bonded)", "self_bonded") 
-            .withColumnRenamed("avg(tokens_proportion)", "tokens_proportion") 
-            .withColumnRenamed("avg(voting_power_score)", "voting_power_score") 
-            .withColumnRenamed("avg(commission_score)", "commission_score") 
-            .withColumnRenamed("avg(self_bonded_score)", "self_bonded_score") 
-            .withColumnRenamed("avg(vote_propose_score)", "vote_propose_score") 
-            .withColumnRenamed("avg(score)", "score") 
-        )
-        # df = df.drop("new_block")
-        #finish combining
-        return df
+    # def combine_data(df: DataFrame, combine_win_size: int):
+    #     window = Window.partitionBy("operator_address").orderBy("block_height")
+    #     #take window(rolling) 
+    #     df = df.withColumn(
+    #         #tagging group of window size block(f.g: block1+2+3+4-> group:0, block5+6+7+8-> group:1)
+    #         "new_block",F.floor((F.row_number().over(window)-1)/combine_win_size)
+    #     )
+    #         #groupby each group
+    #     df = (df.groupBy("new_block", "operator_address")
+    #         .agg({
+    #             "block_height": "min",
+    #             "tokens": "mean",
+    #             "commission_rate": "mean",
+    #             "self_bonded": "mean",
+    #             "voting_power_score": "mean",
+    #             "commission_score": "mean",
+    #             "self_bonded_score": "mean",
+    #             "vote_propose_score": "mean",
+    #             "score": "mean",
+    #         }) 
+    #         .withColumnRenamed("min(block_height)", "block_height") 
+    #         .withColumnRenamed("avg(tokens)", "tokens") 
+    #         .withColumnRenamed("avg(commission_rate)", "commission_rate") 
+    #         .withColumnRenamed("avg(self_bonded)", "self_bonded") 
+    #         .withColumnRenamed("avg(voting_power_score)", "voting_power_score") 
+    #         .withColumnRenamed("avg(commission_score)", "commission_score") 
+    #         .withColumnRenamed("avg(self_bonded_score)", "self_bonded_score") 
+    #         .withColumnRenamed("avg(vote_propose_score)", "vote_propose_score") 
+    #         .withColumnRenamed("avg(score)", "score") 
+    #     )
+    #     # df = df.drop("new_block")
+    #     #finish combining
+    #     return df
 
     @staticmethod
     def shifting_data(df: DataFrame, label_win_size: int):
-        assert label_win_size% 150 == 0, "150 must be divisible by label_win_size"
-        size = int(label_win_size/150) # As we'll shift data after combining the data
+        assert label_win_size % 150 == 0, "150 must be divisible by label_win_size"
+        size = int(label_win_size / 150) # As we'll shift data after combining the data
         
+        ### window is used for shifting "size" blocks and calculate the mean
         window = Window.partitionBy("operator_address").orderBy("new_block").rangeBetween(0, size)
-        #window is used for shifting "size" blocks and calculate the mean
+        
+        ### lag_window is used for getting the null blocks - the last blocks that do not change
         lag_window = Window.partitionBy("operator_address").orderBy("new_block")
-        #lag_window is used for getting the null blocks - the last blocks that do not change
 
         df = df.withColumn(
-            "label", F.when(
-                        F.lag("score", -size).over(lag_window).isNotNull(), F.mean("score").over(window)
-        )).orderBy("new_block")
-        # df = df.drop("score")
+            "label", 
+            F.when(F.lag("score", -size).over(lag_window).isNotNull(), F.mean("score").over(window))
+        ).orderBy("new_block")
+
         df = df.na.drop()
-        #checked ;)
+
         return df
 

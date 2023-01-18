@@ -1,7 +1,7 @@
 import os
 import time
 from labeling.etl_processor import ETLProcessor
-from labeling.tools import get_spark, query, upload, get_min_height, get_max_height, psql_connect
+from labeling.tools import get_spark, query, upload, get_max_height, psql_connect
 from utils.logger import Logger
 
 
@@ -83,47 +83,40 @@ def parse_ckpt(ckpt_file):
         return None, None
 
 
-def get_batch_intervals(start_block, global_end_block, batch_size, vote_proposed_win_size, combine_win_size, label_win_size, min_block):
-    assert batch_size >= vote_proposed_win_size + combine_win_size + label_win_size
-    assert label_win_size % combine_win_size == 0
-    assert (batch_size - vote_proposed_win_size + 1) % combine_win_size == 0
-
-    intervals = []
-    while start_block <= global_end_block:
-        batch_start = max(min_block, start_block - vote_proposed_win_size + 1)
-        batch_end = batch_start + batch_size - 1
-        
-        if batch_end > global_end_block:
-            batch_size = global_end_block - batch_start + 1
-            batch_size = (batch_size - vote_proposed_win_size + 1) // combine_win_size * combine_win_size + vote_proposed_win_size - 1
-            batch_end = batch_start + batch_size - 1
-            
-            if batch_start > batch_end:
-                break
-            
-            if batch_size < vote_proposed_win_size + combine_win_size + label_win_size - 1:
-                break
-
-        intervals.append((batch_start, batch_end))
-        start_block = batch_end - label_win_size + 1
+def get_batch_intervals(start_block, end_block, batch_size, vote_proposed_win_size, label_win_size):
+    block_steps = 150
+    assert (end_block - start_block) % block_steps == 0
+    assert vote_proposed_win_size % block_steps == 0
+    assert label_win_size % block_steps == 0
     
+    start_block = start_block + vote_proposed_win_size - block_steps
+    intervals = []
+    stop = False
+
+    while start_block <= end_block and not stop:
+        batch_start = start_block - vote_proposed_win_size + block_steps
+        batch_end = batch_start + (batch_size - 1) * block_steps
+
+        if batch_end >= end_block:
+            batch_end = end_block
+            stop = True
+
+        assert (batch_end - batch_start) % block_steps == 0, f"Got {batch_start} -> {batch_end}"
+        intervals.append((batch_start, batch_end))
+        start_block = batch_end - label_win_size + block_steps
     return intervals
 
 
-def main(config, start_block: int, end_block: int, checkpoint: str = None):
+def main(config, start_block: int, end_block: int, checkpoint: str = None, show_intervals=True):
     """
     Args:
         checkpoint: checkpoint file path
     """
-    ### Check window sizes condiction
+    ### Check window sizes condition
     vote_proposed_win_size = config.hp.etl.vote_proposed_win_size
-    combine_win_size = config.hp.etl.combine_win_size
     label_win_size = config.hp.etl.label_win_size
     batch_size = config.hp.upload.batch_size
-
-    assert batch_size >= vote_proposed_win_size + combine_win_size + label_win_size
-    assert label_win_size % combine_win_size == 0
-    assert (batch_size - vote_proposed_win_size + 1) % combine_win_size == 0
+    block_steps = 150
 
     max_height = get_max_height(psql_connect(**config.src).cursor(), config.src.table)
     assert max_height >= end_block, f"End block ({end_block}) excceed max block height ({max_height})"
@@ -143,7 +136,8 @@ def main(config, start_block: int, end_block: int, checkpoint: str = None):
 
         checkpoint = f"output/ckpt/ckpt_{start_block}_{end_block}.txt"
         if os.path.exists(checkpoint):
-            raise ValueError(f"Checkpoint {checkpoint} exists, please delete it")
+            # raise ValueError(f"Checkpoint {checkpoint} exists, please delete it")
+            os.remove(checkpoint)
         ckpt_logger = open(checkpoint, "w")
         ckpt_logger.write(f"{start_block} -> {end_block}\n")
         ckpt_logger.close()
@@ -152,26 +146,31 @@ def main(config, start_block: int, end_block: int, checkpoint: str = None):
 
     ### Start uploading process
     process_logger.write("Uploading process: from", start_block, "to", end_block)
-    min_block = get_min_height(psql_connect(**config.src).cursor(), config.src.table)
-    spark = get_spark()
-
     intervals = get_batch_intervals(
         start_block=start_block,
-        global_end_block=end_block,
+        end_block=end_block,
         batch_size=batch_size,
         vote_proposed_win_size=vote_proposed_win_size,
-        combine_win_size=combine_win_size,
         label_win_size=label_win_size,
-        min_block=min_block)
+    )
+
+    print("| Intervals:")
+    if show_intervals:
+        for idx, (batch_start, batch_end) in enumerate(intervals):
+            print(idx, "-", batch_start, "->", batch_end)
+
+    spark = get_spark()
 
     for idx, (batch_start, batch_end) in enumerate(intervals):
         __start_time = time.time()
 
-        process_logger.write("Start uploading from", batch_start, "to", batch_end, "| interval:", idx + 1, "/", len(intervals), "| batch size =", batch_end - batch_start + 1)
+        process_logger.write("Start uploading from", batch_start, "to", batch_end, "| interval:", idx + 1, "/", len(intervals), "| batch size =", (batch_end - batch_start) / block_steps + 1)
         df = sampling(spark, config, batch_start, batch_end)
         
         process_logger.write("Start ETL processing")
         df = ETLProcessor.data_scoring(df, **config.hp.etl)
+        df.agg({"block_height": "min"}).show()
+        df.agg({"block_height": "max"}).show()
         
         process_logger.write("Uploading data to database")
         uploading(df, config)

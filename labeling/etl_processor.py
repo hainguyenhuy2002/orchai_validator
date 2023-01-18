@@ -79,8 +79,6 @@ class ETLProcessor(object):
         df = ETLProcessor.shifting_data(df, label_win_size)
         print("Sucessfully shifting data")
         print("------------------------------------------------")
-
-        df = df.drop("new_block")
         
         return df
 
@@ -273,15 +271,15 @@ class ETLProcessor(object):
         size = int(label_win_size / 150) # As we'll shift data after combining the data
         
         ### window is used for shifting "size" blocks and calculate the mean
-        window = Window.partitionBy("operator_address").orderBy("new_block").rangeBetween(0, size)
+        window = Window.partitionBy("operator_address").orderBy("block_height").rangeBetween(0, size)
         
         ### lag_window is used for getting the null blocks - the last blocks that do not change
-        lag_window = Window.partitionBy("operator_address").orderBy("new_block")
+        lag_window = Window.partitionBy("operator_address").orderBy("block_height")
 
         df = df.withColumn(
             "label", 
             F.when(F.lag("score", -size).over(lag_window).isNotNull(), F.mean("score").over(window))
-        ).orderBy("new_block")
+        ).orderBy("block_height")
 
         df = df.na.drop()
 

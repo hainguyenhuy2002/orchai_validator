@@ -24,6 +24,6 @@ hp:
     vote_proposed_win_size: 14400  
     label_win_size: 100800 
   upload:
-    batch_size: 149999
+    batch_size: 2000
 
 # psql -U orchai_rw --host 103.160.75.28 -d orchai

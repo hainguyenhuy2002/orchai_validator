@@ -8,14 +8,11 @@ class ETLProcessor(object):
         df: DataFrame,
         accept_rate: float,
         concentration_level: float,
-        vote_score: int,
-        propose_score: int,
         A: int,
         B: int,
         C: int,
         D: int,
         vote_proposed_win_size: int,
-        combine_win_size: int,
         label_win_size: int
     ):
         """
@@ -70,7 +67,7 @@ class ETLProcessor(object):
         print("Successfully converted self_bonded_score column")
         print("------------------------------------------------")
 
-        df = ETLProcessor.vote_proposed_score(df, vote_score, propose_score, vote_proposed_win_size)
+        df = ETLProcessor.vote_score(df, vote_proposed_win_size)
         print("------------------------------------------------")
         print("Successfully converted vote_propose_score column")
         print("------------------------------------------------")
@@ -85,12 +82,12 @@ class ETLProcessor(object):
         # print("Sucessfully filter data")
         # print("------------------------------------------------")
 
-        df = ETLProcessor.combine_data(df,combine_win_size)
-        print("------------------------------------------------")
-        print("Sucessfully combine data")
-        print("------------------------------------------------")
+        # df = ETLProcessor.combine_data(df,combine_win_size)
+        # print("------------------------------------------------")
+        # print("Sucessfully combine data")
+        # print("------------------------------------------------")
 
-        df = ETLProcessor.shifting_data(df, label_win_size, combine_win_size)
+        df = ETLProcessor.shifting_data(df, label_win_size)
         print("------------------------------------------------")
         print("Sucessfully shifting data")
         print("------------------------------------------------")
@@ -137,14 +134,23 @@ class ETLProcessor(object):
 
     @staticmethod
     def voting_power_score(df: DataFrame):
-        df = df.withColumn("tokens_proportion", df.tokens / df.total_token_amt_per_block)
-        df = df.withColumn("mean_percentage", 1 / df.validators_count_per_block)
-        df = df.withColumn("voting_power_score", 1 - df.tokens_proportion / df.mean_percentage / 2)
-        df = df.withColumn(
-            "voting_power_score", F.when(df.tokens_proportion > 2 * df.mean_percentage, 0).otherwise(df.voting_power_score)
-        )
-        df = df.drop("mean_percentage")
+        # Max tokens
+        max_token_df = (
+            df.groupBy("block_height")
+            .agg({"tokens": "max"})
+            .withColumnRenamed("max(tokens)", 
+            "max_tokens_per_block"))
+        #join max_tokens into dataframe
+        df = df.join(max_token_df, on = "block_height", how = "left")
 
+        df = df.withColumn("tokens_proportion", df.tokens / df.total_token_amt_per_block)
+        df = df.withColumn("voting_power_score", 1 - df.tokens / df.max_tokens_per_block)
+        df = df.withColumn(
+            "voting_power_score", F.when(df.tokens_proportion > 2 * (1/df.validators_count_per_block), 0).otherwise(df.voting_power_score)
+        )
+        df = df.drop("max_tokens_per_block")
+
+        #checked ;)
         return df
 
     @staticmethod
@@ -176,13 +182,16 @@ class ETLProcessor(object):
         return df
 
     @staticmethod
-    def vote_proposed_score(df: DataFrame, vote_score: int, propose_score: int, vote_proposed_win_size: int):
-        df = df.withColumn("vote_propose_point", vote_score * df.vote + propose_score * df.propose)
+    def vote_score(df: DataFrame, vote_proposed_win_size: int):
+        # df = df.withColumn("vote_propose_point", vote_score * df.vote + propose_score * df.propose)
+        # #vote, propose: TRue, False
+
         size = vote_proposed_win_size-1
 
-        vote_propose_score_df = df.select("operator_address", "block_height", "vote_propose_point").orderBy(
-            "operator_address", "block_height"
-        )
+        # vote_propose_score_df = df.select("operator_address", "block_height", "vote_propose_point").orderBy(
+        #     "operator_address", "block_height"
+        # )
+        
 
         cummulative_window = Window.partitionBy("operator_address").orderBy("block_height").rangeBetween(-size, 0)
         ### Window for moving average step
@@ -191,34 +200,38 @@ class ETLProcessor(object):
         lag_window = Window.partitionBy("operator_address").orderBy("block_height")
         ### Window for lag to check the null
 
-        vote_propose_score_df = vote_propose_score_df.withColumn(
+        df = df.withColumn(
             ### Using lag to get the null - rows that do not change
-            "vote_propose_score",
+            "vote_score",
             F.when(
-                F.lag("vote_propose_point", size).over(lag_window).isNotNull(), F.sum("vote_propose_point").over(cummulative_window)
+                F.lag("vote", size).over(lag_window).isNotNull(), F.sum("vote").over(cummulative_window)
             ),
         )
 
-        df = df.join(vote_propose_score_df, on=["block_height", "operator_address"], how="left").orderBy("block_height")
-        df = df.drop("vote_propose_point")
+        # df = df.join(vote_propose_score_df, on=["block_height", "operator_address"], how="left").orderBy("block_height")
+        # df = df.drop("vote_propose_point")
         df = df.na.drop()
 
-        max_vote_propose_score_df = (
+        max_vote_score_df = (
             df.groupBy("block_height")
-            .agg({"vote_propose_score": "max"})
-            .withColumnRenamed("max(vote_propose_score)", "max_vote_propose_score")
+            .agg({"vote_score": "max"})
+            .withColumnRenamed("max(vote_score)", "max_vote_score")
         )
 
-        df = df.join(max_vote_propose_score_df, on="block_height", how="left").orderBy("block_height")
-        df = df.withColumn("vote_propose_score", df.vote_propose_score / df.max_vote_propose_score)
-        df = df.drop("max_vote_propose_score")
+        df = df.join(max_vote_score_df, on="block_height", how="left").orderBy("block_height")
+        df = df.withColumn("vote_score", df.vote_score / df.max_vote_score)
+        df = df.drop("max_vote_score")
+        df = df.drop("vote")
+        df = df.drop("propose")
 
+        #checked ;)
         return df
+
 
     @staticmethod
     def final_score(df: DataFrame, A: int, B: int, C: int, D: int):
         df = df.withColumn(
-            "score", A * df.voting_power_score + B * df.commission_score + C * df.self_bonded_score + D * df.vote_propose_score
+            "score", A * df.voting_power_score + B * df.commission_score + C * df.self_bonded_score + D * df.vote_score
         )
 
         ### Jailed = True -> score = 0
@@ -287,9 +300,9 @@ class ETLProcessor(object):
         return df
 
     @staticmethod
-    def shifting_data(df: DataFrame, label_win_size: int, combine_win_size: int):
-        assert label_win_size% combine_win_size == 0, "combine_win_size must be divisible by label_win_size"
-        size = int(label_win_size/combine_win_size) # As we'll shift data after combining the data
+    def shifting_data(df: DataFrame, label_win_size: int):
+        assert label_win_size% 150 == 0, "150 must be divisible by label_win_size"
+        size = int(label_win_size/150) # As we'll shift data after combining the data
         
         window = Window.partitionBy("operator_address").orderBy("new_block").rangeBetween(0, size)
         #window is used for shifting "size" blocks and calculate the mean
@@ -302,5 +315,6 @@ class ETLProcessor(object):
         )).orderBy("new_block")
         # df = df.drop("score")
         df = df.na.drop()
+        #checked ;)
         return df
 

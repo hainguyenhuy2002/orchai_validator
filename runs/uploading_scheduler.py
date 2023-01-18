@@ -3,6 +3,9 @@ from omegaconf import OmegaConf
 
 
 if __name__ == "__main__":
+    import os, sys
+    sys.path.append(os.getcwd())
+    
     from labeling.upload import main, get_batch_intervals
     from labeling.tools import psql_connect, get_max_height, get_min_height
     

@@ -144,7 +144,7 @@ def main(config, start_block: int, end_block: int, checkpoint: str = None, show_
     ckpt_logger = open(checkpoint, "a")
 
     ### Start uploading process
-    process_logger.write("Uploading process: from", start_block, "to", end_block)
+    process_logger.write("| Uploading process: from", start_block, "to", end_block)
     intervals = get_batch_intervals(
         start_block=start_block,
         end_block=end_block,
@@ -163,22 +163,22 @@ def main(config, start_block: int, end_block: int, checkpoint: str = None, show_
     for idx, (batch_start, batch_end) in enumerate(intervals):
         __start_time = time.time()
 
-        process_logger.write("Start uploading from", batch_start, "to", batch_end, "| interval:", idx + 1, "/", len(intervals), "| batch size =", (batch_end - batch_start) / block_steps + 1)
+        process_logger.write("| Start uploading from", batch_start, "to", batch_end, "| interval:", idx + 1, "/", len(intervals), "| batch size =", (batch_end - batch_start) / block_steps + 1)
         df = sampling(spark, config, batch_start, batch_end)
         
-        process_logger.write("Start ETL processing")
+        process_logger.write("| Start ETL processing")
         df = ETLProcessor.data_scoring(df, **config.hp.etl)
         
-        process_logger.write("Uploading data to database")
+        process_logger.write("| Uploading data to database")
         uploading(df, config)
 
-        process_logger.write("Done")
+        process_logger.write("| Done")
         log_ckpt(batch_start, batch_end)
 
         __duration = time.time() - __start_time
-        process_logger.write("Duration:", __duration, "\n")
+        process_logger.write("| Duration:", __duration, "\n")
 
-    process_logger.write("Complete!")
+    process_logger.write("| Complete!")
     ckpt_logger.close()
 
     

@@ -3,6 +3,9 @@ from omegaconf import OmegaConf
 
 
 if __name__ == "__main__":
+    import os, sys
+    sys.path.append(os.getcwd())
+    
     from labeling.upload import main
     
     parser = ArgumentParser()

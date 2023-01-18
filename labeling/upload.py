@@ -39,7 +39,6 @@ def sampling(spark, config, from_block: int, to_block: int):
 
 
 def uploading(df, config):
-    # df = df.drop('jailed', 'status', 'tokens', 'commission_rate', 'delegator_shares', 'self_bonded', 'propose', 'vote')
     upload(df, **config.dest)
 
 
@@ -169,8 +168,6 @@ def main(config, start_block: int, end_block: int, checkpoint: str = None, show_
         
         process_logger.write("Start ETL processing")
         df = ETLProcessor.data_scoring(df, **config.hp.etl)
-        df.agg({"block_height": "min"}).show()
-        df.agg({"block_height": "max"}).show()
         
         process_logger.write("Uploading data to database")
         uploading(df, config)

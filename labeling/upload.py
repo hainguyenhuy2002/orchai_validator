@@ -1,7 +1,7 @@
 import os
 import time
 from labeling.etl_processor import ETLProcessor
-from labeling.tools import get_spark, query, upload, get_max_height, psql_connect
+from labeling.tools import get_spark, query, upload, get_max_height, psql_connect, to_parquet
 from utils.logger import Logger
 
 
@@ -39,7 +39,10 @@ def sampling(spark, config, from_block: int, to_block: int):
 
 
 def uploading(df, config):
-    upload(df, **config.dest)
+    if hasattr(config.dest, "database"):
+        upload(df, **config.dest)
+    elif hasattr(config.dest, "file"):
+        to_parquet(df, **config.dest)
 
 
 def parse_ckpt(ckpt_file):
@@ -91,7 +94,6 @@ def get_batch_intervals(start_block, end_block, batch_size, vote_proposed_win_si
     start_block = start_block + vote_proposed_win_size - block_steps
     intervals = []
     stop = False
-
     while start_block <= end_block and not stop:
         batch_start = start_block - vote_proposed_win_size + block_steps
         batch_end = batch_start + (batch_size - 1) * block_steps
@@ -153,10 +155,13 @@ def main(config, start_block: int, end_block: int, checkpoint: str = None, show_
         label_win_size=label_win_size,
     )
 
-    print("| Intervals:")
     if show_intervals:
+        print("| Intervals:")
         for idx, (batch_start, batch_end) in enumerate(intervals):
             print(idx, "-", batch_start, "->", batch_end)
+
+    if len(intervals) == 0:
+        raise ValueError("No interval found, please recheck arguments in config file and start-end blocks")
 
     spark = get_spark()
 

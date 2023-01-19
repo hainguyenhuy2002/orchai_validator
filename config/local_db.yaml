@@ -12,6 +12,7 @@ dest:
   password: "postgres"
   database: "orchai"
   table: "block_label"
+  # table: "(select * from public.validator_block where block_height <= 7100000 order by block_height) as t"
   batchsize: 1000
 hp:
   etl:

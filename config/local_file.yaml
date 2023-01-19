@@ -4,15 +4,10 @@ src:
   user: "orchai_rw"
   password: "travaorchai_rw123"
   database: "orchai"
-  table: "(select * from public.validator_block where block_height <= 7100000 order by block_height) as t"
+  table: "public.validator_block"
 dest:
-  host: "127.0.0.1"
-  port: 5432
-  user: "postgres"
-  password: "dbadmin"
-  database: "orchai"
-  table: "block_label"
-  batchsize: 1000
+  file: data/etl_parquet
+  mode: append
 hp:
   etl:
     accept_rate: 0.1
@@ -24,4 +19,4 @@ hp:
     vote_proposed_win_size: 600 
     label_win_size: 1200
   upload:
-    batch_size: 1999
+    batch_size: 80

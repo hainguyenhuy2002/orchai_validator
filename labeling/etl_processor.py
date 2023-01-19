@@ -67,18 +67,12 @@ class ETLProcessor(object):
         df = ETLProcessor.final_score(df, A, B, C, D)
         print("Sucessfully converted final_score")
         print("------------------------------------------------")
-        
-        # df = ETLProcessor.validator_filter(df)
-        # print("Sucessfully filter data")
-        # print("------------------------------------------------")
-
-        # df = ETLProcessor.combine_data(df,combine_win_size)
-        # print("Sucessfully combine data")
-        # print("------------------------------------------------")
 
         df = ETLProcessor.shifting_data(df, label_win_size)
         print("Sucessfully shifting data")
         print("------------------------------------------------")
+
+        df = ETLProcessor.postprocess(df)
         
         return df
 
@@ -123,7 +117,7 @@ class ETLProcessor(object):
     @staticmethod
     def prefix_data(df: DataFrame):
         df = df.withColumn("commission_rate", (F.col("commission_rate") / 10**18))
-        df = df.withColumn("self_bonded", (F.col("self_bonded") / 10**16))
+        df = df.withColumn("self_bonded", (F.col("self_bonded") / 10**18))
         df = df.withColumn("delegators_token", (df.tokens - df.self_bonded))
         df = df.drop("delegator_shares")
         return df  
@@ -230,45 +224,10 @@ class ETLProcessor(object):
 
         return df     
 
-    # @staticmethod
-    # def combine_data(df: DataFrame, combine_win_size: int):
-    #     window = Window.partitionBy("operator_address").orderBy("block_height")
-    #     #take window(rolling) 
-    #     df = df.withColumn(
-    #         #tagging group of window size block(f.g: block1+2+3+4-> group:0, block5+6+7+8-> group:1)
-    #         "new_block",F.floor((F.row_number().over(window)-1)/combine_win_size)
-    #     )
-    #         #groupby each group
-    #     df = (df.groupBy("new_block", "operator_address")
-    #         .agg({
-    #             "block_height": "min",
-    #             "tokens": "mean",
-    #             "commission_rate": "mean",
-    #             "self_bonded": "mean",
-    #             "voting_power_score": "mean",
-    #             "commission_score": "mean",
-    #             "self_bonded_score": "mean",
-    #             "vote_propose_score": "mean",
-    #             "score": "mean",
-    #         }) 
-    #         .withColumnRenamed("min(block_height)", "block_height") 
-    #         .withColumnRenamed("avg(tokens)", "tokens") 
-    #         .withColumnRenamed("avg(commission_rate)", "commission_rate") 
-    #         .withColumnRenamed("avg(self_bonded)", "self_bonded") 
-    #         .withColumnRenamed("avg(voting_power_score)", "voting_power_score") 
-    #         .withColumnRenamed("avg(commission_score)", "commission_score") 
-    #         .withColumnRenamed("avg(self_bonded_score)", "self_bonded_score") 
-    #         .withColumnRenamed("avg(vote_propose_score)", "vote_propose_score") 
-    #         .withColumnRenamed("avg(score)", "score") 
-    #     )
-    #     # df = df.drop("new_block")
-    #     #finish combining
-    #     return df
-
     @staticmethod
     def shifting_data(df: DataFrame, label_win_size: int):
         assert label_win_size % 150 == 0, "150 must be divisible by label_win_size"
-        size = int(label_win_size / 150) # As we'll shift data after combining the data
+        size = int(label_win_size // 150) # As we'll shift data after combining the data
         
         ### window is used for shifting "size" blocks and calculate the mean
         window = Window.partitionBy("operator_address").orderBy("block_height").rangeBetween(0, size)
@@ -282,6 +241,18 @@ class ETLProcessor(object):
         ).orderBy("block_height")
 
         df = df.na.drop()
+
+        return df
+
+    @staticmethod
+    def postprocess(df: DataFrame):
+        df = df.drop(
+            "jailed", 
+            "status",
+            "validators_count_per_block",
+            "total_token_amt_per_block",
+            "total_self_bonded_amt_per_block"
+        )
 
         return df
 

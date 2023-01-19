@@ -81,6 +81,10 @@ def upload(
     df.mode(mode).save()
 
 
+def to_parquet(df: DataFrame, file, mode):
+    df.write.mode(mode).parquet(file)
+
+
 def psql_connect(host, port, database, user, password, **kwargs):
     key = "#".join([str(s) for s in [host, port, database, user, password]])
 

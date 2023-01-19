@@ -1,7 +1,7 @@
 import os
 import time
 from labeling.etl_processor import ETLProcessor
-from labeling.tools import get_spark, query, upload, get_max_height, psql_connect
+from labeling.tools import get_spark, query, upload, get_max_height, psql_connect, to_parquet
 from utils.logger import Logger
 
 
@@ -39,8 +39,10 @@ def sampling(spark, config, from_block: int, to_block: int):
 
 
 def uploading(df, config):
-    # df = df.drop('jailed', 'status', 'tokens', 'commission_rate', 'delegator_shares', 'self_bonded', 'propose', 'vote')
-    upload(df, **config.dest)
+    if hasattr(config.dest, "database"):
+        upload(df, **config.dest)
+    elif hasattr(config.dest, "file"):
+        to_parquet(df, **config.dest)
 
 
 def parse_ckpt(ckpt_file):
@@ -92,7 +94,6 @@ def get_batch_intervals(start_block, end_block, batch_size, vote_proposed_win_si
     start_block = start_block + vote_proposed_win_size - block_steps
     intervals = []
     stop = False
-
     while start_block <= end_block and not stop:
         batch_start = start_block - vote_proposed_win_size + block_steps
         batch_end = batch_start + (batch_size - 1) * block_steps
@@ -145,7 +146,7 @@ def main(config, start_block: int, end_block: int, checkpoint: str = None, show_
     ckpt_logger = open(checkpoint, "a")
 
     ### Start uploading process
-    process_logger.write("Uploading process: from", start_block, "to", end_block)
+    process_logger.write("| Uploading process: from", start_block, "to", end_block)
     intervals = get_batch_intervals(
         start_block=start_block,
         end_block=end_block,
@@ -154,34 +155,35 @@ def main(config, start_block: int, end_block: int, checkpoint: str = None, show_
         label_win_size=label_win_size,
     )
 
-    print("| Intervals:")
     if show_intervals:
+        print("| Intervals:")
         for idx, (batch_start, batch_end) in enumerate(intervals):
             print(idx, "-", batch_start, "->", batch_end)
+
+    if len(intervals) == 0:
+        raise ValueError("No interval found, please recheck arguments in config file and start-end blocks")
 
     spark = get_spark()
 
     for idx, (batch_start, batch_end) in enumerate(intervals):
         __start_time = time.time()
 
-        process_logger.write("Start uploading from", batch_start, "to", batch_end, "| interval:", idx + 1, "/", len(intervals), "| batch size =", (batch_end - batch_start) / block_steps + 1)
+        process_logger.write("| Start uploading from", batch_start, "to", batch_end, "| interval:", idx + 1, "/", len(intervals), "| batch size =", (batch_end - batch_start) / block_steps + 1)
         df = sampling(spark, config, batch_start, batch_end)
         
-        process_logger.write("Start ETL processing")
+        process_logger.write("| Start ETL processing")
         df = ETLProcessor.data_scoring(df, **config.hp.etl)
-        df.agg({"block_height": "min"}).show()
-        df.agg({"block_height": "max"}).show()
         
-        process_logger.write("Uploading data to database")
+        process_logger.write("| Uploading data to database")
         uploading(df, config)
 
-        process_logger.write("Done")
+        process_logger.write("| Done")
         log_ckpt(batch_start, batch_end)
 
         __duration = time.time() - __start_time
-        process_logger.write("Duration:", __duration, "\n")
+        process_logger.write("| Duration:", __duration, "\n")
 
-    process_logger.write("Complete!")
+    process_logger.write("| Complete!")
     ckpt_logger.close()
 
     

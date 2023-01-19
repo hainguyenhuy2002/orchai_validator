@@ -1,10 +1,14 @@
-from labeling.upload import main, get_batch_intervals
 from argparse import ArgumentParser
 from omegaconf import OmegaConf
-from labeling.tools import psql_connect, get_max_height, get_min_height
 
 
 if __name__ == "__main__":
+    import os, sys
+    sys.path.append(os.getcwd())
+    
+    from labeling.upload import main, get_batch_intervals
+    from labeling.tools import psql_connect, get_max_height, get_min_height
+    
     parser = ArgumentParser()
     parser.add_argument("-cf", "--config", type=str, required=True, help="Path to config file (.yaml)")
     parser.add_argument("-u", "--upload", action="store_true", help="Start uploading process")

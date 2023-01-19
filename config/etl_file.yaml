@@ -6,7 +6,7 @@ src:
   database: "orchai"
   table: "public.validator_block"
 dest:
-  file: data/etl.parquet
+  file: data/etl_parquet
   mode: append
 hp:
   etl:

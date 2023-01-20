@@ -227,7 +227,7 @@ class ETLProcessor(object):
     @staticmethod
     def shifting_data(df: DataFrame, label_win_size: int):
         assert label_win_size % 150 == 0, "150 must be divisible by label_win_size"
-        size = int(label_win_size / 150) # As we'll shift data after combining the data
+        size = int(label_win_size // 150) # As we'll shift data after combining the data
         
         ### window is used for shifting "size" blocks and calculate the mean
         window = Window.partitionBy("operator_address").orderBy("block_height").rangeBetween(0, size)

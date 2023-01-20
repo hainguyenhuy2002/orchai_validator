@@ -90,6 +90,7 @@ def get_batch_intervals(start_block, end_block, batch_size, vote_proposed_win_si
     assert (end_block - start_block) % block_steps == 0
     assert vote_proposed_win_size % block_steps == 0
     assert label_win_size % block_steps == 0
+    assert (batch_size - 1) * block_steps >= vote_proposed_win_size + label_win_size - block_steps
     
     start_block = start_block + vote_proposed_win_size - block_steps
     intervals = []
@@ -102,9 +103,10 @@ def get_batch_intervals(start_block, end_block, batch_size, vote_proposed_win_si
             batch_end = end_block
             stop = True
 
+        assert batch_end >= batch_start
         assert (batch_end - batch_start) % block_steps == 0, f"Got {batch_start} -> {batch_end}"
         intervals.append((batch_start, batch_end))
-        start_block = batch_end - label_win_size + block_steps
+        start_block = batch_end - label_win_size - block_steps
     return intervals
 
 
@@ -164,6 +166,8 @@ def main(config, start_block: int, end_block: int, checkpoint: str = None, show_
         raise ValueError("No interval found, please recheck arguments in config file and start-end blocks")
 
     spark = get_spark()
+    import pyspark.sql.functions as F
+    import numpy as np
 
     for idx, (batch_start, batch_end) in enumerate(intervals):
         __start_time = time.time()
@@ -173,6 +177,15 @@ def main(config, start_block: int, end_block: int, checkpoint: str = None, show_
         
         process_logger.write("| Start ETL processing")
         df = ETLProcessor.data_scoring(df, **config.hp.etl)
+        bh = df.groupBy("block_height").count().select(F.col("block_height"))
+        bb = bh.toPandas()
+        bh = bb.to_numpy().reshape((-1,))
+        bh.sort()
+        print(bh[0], bh[-1])
+        diff = np.diff(bh)
+        for i, d in enumerate(diff):
+            if d != block_steps:
+                print(bh[i], bh[i + 1])
         
         process_logger.write("| Uploading data to database")
         uploading(df, config)
@@ -182,6 +195,7 @@ def main(config, start_block: int, end_block: int, checkpoint: str = None, show_
 
         __duration = time.time() - __start_time
         process_logger.write("| Duration:", __duration, "\n")
+
 
     process_logger.write("| Complete!")
     ckpt_logger.close()

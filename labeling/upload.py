@@ -184,7 +184,7 @@ def main(config, start_block: int, end_block: int, checkpoint: str = None, show_
         process_logger.write("| Start uploading from", batch_start, "to", batch_end, "| interval:", idx + 1, "/", len(intervals), "| batch size =", (batch_end - batch_start) / block_steps + 1)
         df = sampling(spark, config, batch_start, batch_end)
         
-        process_logger.write("| Start ETL processing")
+        process_logger.write("| Start ETL process")
         df = ETLProcessor.data_scoring(df, **config.hp.etl)
         bh = df.groupBy("block_height").count().select(F.col("block_height"))
         bb = bh.toPandas()

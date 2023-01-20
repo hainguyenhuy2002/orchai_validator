@@ -147,6 +147,15 @@ def main(config, start_block: int, end_block: int, checkpoint: str = None, show_
 
     ckpt_logger = open(checkpoint, "a")
 
+    if hasattr(config.dest, "file"):
+        if os.path.exists(config.dest.file):
+            import shutil
+            from labeling.tools import yes_no
+            if yes_no("| Delete " + config.dest.file):
+                shutil.rmtree(config.dest.file)
+            elif yes_no("| Exit ??"):
+                exit()
+
     ### Start uploading process
     process_logger.write("| Uploading process: from", start_block, "to", end_block)
     intervals = get_batch_intervals(

@@ -109,3 +109,12 @@ def get_min_height(cur, table):
     cur.execute(f"select min(block_height) from {table};")
     return cur.fetchall()[0][0]
 
+
+def yes_no(msg: str):
+    print(msg, "([y]es / [n]o)")
+    while True:
+        ans = input()
+        if ans.lower() == 'n':
+            return False
+        if ans.lower() == 'y':
+            return True

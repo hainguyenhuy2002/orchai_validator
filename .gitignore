@@ -1,5 +1,5 @@
 __pycache__
-.DStore
+.DS_Store
 command.txt
 validate_etl.txt
 view

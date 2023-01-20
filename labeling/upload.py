@@ -91,6 +91,7 @@ def get_batch_intervals(start_block, end_block, batch_size, vote_proposed_win_si
     assert vote_proposed_win_size % block_steps == 0
     assert label_win_size % block_steps == 0
     assert (batch_size - 1) * block_steps >= vote_proposed_win_size + label_win_size - block_steps
+    assert ((end_block - start_block) // block_steps + 1) % batch_size * block_steps >= vote_proposed_win_size + label_win_size - block_steps
     
     start_block = start_block + vote_proposed_win_size - block_steps
     intervals = []

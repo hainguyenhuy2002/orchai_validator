@@ -1,6 +1,8 @@
 from pyspark.sql import SparkSession, DataFrame, Window
+from labeling.upload import get_spark
 import pyspark.sql.functions as F
 
+spark = get_spark()
 C_R_BASE = 0.1
 def create_APR(df, C_R_BASE):
     df = df.withColumn("1-c_r", (1 - F.col("commission_rate"))).orderBy("operator_address", "block_height")
@@ -61,7 +63,9 @@ def join_df(real_df, predict_df):
     final_df = final_df.drop("sum_unreal_delta")
     return final_df
 
-def back_test(df, C_R_BASE,start_block, end_block, timestamp_block):
+def back_test(path: str, C_R_BASE: int,start_block: int, end_block: int, timestamp_block: int):
+    
+    df = spark.read.parquet(path)
     for i in range(start_block, end_block+1, 150):
         if i == start_block:
             APR_df = create_APR(df, C_R_BASE)
@@ -84,7 +88,5 @@ def back_test(df, C_R_BASE,start_block, end_block, timestamp_block):
             unreal_APR_df = creat_unreal_APR(predict_df, real_APR_df, i)
             merge_df = join_df(real_APR_df, unreal_APR_df)
             final_df = final_df.union(merge_df)
-    
-    return final_df
-
-
+        
+    final_df.write.parquet("data/backtest_data") 

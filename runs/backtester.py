@@ -39,6 +39,14 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
+        "-st",
+        "--step_block",
+        type=int,
+        default=None,
+        help="",
+    )
+
+    parser.add_argument(
         "-t",
         "--timestamp_block",
         type=int,

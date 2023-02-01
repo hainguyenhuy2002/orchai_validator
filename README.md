@@ -17,11 +17,12 @@ python ./runs/validate_etl.py -c ./config/etl.yaml
 python ./runs/validate_etl.py -c ./config/local_full.yaml
 ```
 # back test
-#small test set in  the interval of 1 month
-python ./runs/backtester.py -p ./data/percent.parquet  -cr 0.1  -s 7103573  -e 7103723 -t 432000 
+#small test set in  the interval of 1 month (test each day for 1 monthdata )
+python ./runs/backtester.py -p ./data/percent.parquet  -cr 0.1  -s 7103573  -e 7535573 -st 14400 -t 432000 
 
-#all test set in  the interval of 1 month
-python ./runs/backtester.py -p ./data/percent.parquet  -cr 0.1  -s 7103573  -e 9151823 -t 432000 #all interval
+#all test set in  the interval of 1 month(test each day for the whole data
+
+python ./runs/backtester.py -p ./data/percent.parquet  -cr 0.1  -s 7103573  -e 9151823 -st 14400 -t 432000 
 
 
 

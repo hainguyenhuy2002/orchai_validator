@@ -63,10 +63,9 @@ def join_df(real_df, predict_df):
     final_df = final_df.drop("sum_unreal_delta")
     return final_df
 
-def back_test(path: str, C_R_BASE: int,start_block: int, end_block: int, timestamp_block: int):
-    
+def back_test(path: str, C_R_BASE: int,start_block: int, end_block: int, step_block: int, timestamp_block: int):
     df = spark.read.parquet(path)
-    for i in range(start_block, end_block+1, 150):
+    for i in range(start_block, end_block+1, step_block):
         if i == start_block:
             APR_df = create_APR(df, C_R_BASE)
             real_df = APR_df.filter(F.col("block_height").between(i, i+ timestamp_block))

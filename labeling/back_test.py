@@ -91,7 +91,7 @@ def back_test(path: str, C_R_BASE: int,start_block: int, end_block: int, step_bl
             merge_df = join_df(real_APR_df, unreal_APR_df)
             final_df = final_df.union(merge_df)
         
-    final_df.withColumn("res", F.when(final_df.real_APR > final_df.unreal_APR, 0).otherwise(1))
+    final_df = final_df.withColumn("res", F.when(final_df.real_APR > final_df.unreal_APR, 0).otherwise(1))
     final_df.write.parquet("data/backtest_data")
     truth = final_df.agg({"res" : "sum"}).collect()[0][0]
     print("Accuracy:", truth / final_df.count())

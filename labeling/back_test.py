@@ -1,4 +1,7 @@
 from pyspark.sql import SparkSession, DataFrame, Window
+if __name__ == "__main__":
+    import os, sys
+    sys.path.append(os.getcwd())
 from labeling.upload import get_spark
 import pyspark.sql.functions as F
 
@@ -63,10 +66,9 @@ def join_df(real_df, predict_df):
     final_df = final_df.drop("sum_unreal_delta")
     return final_df
 
-def back_test(path: str, C_R_BASE: int,start_block: int, end_block: int, timestamp_block: int):
-    
+def back_test(path: str, C_R_BASE: int,start_block: int, end_block: int, step_block: int, timestamp_block: int, save_to_file=True):
     df = spark.read.parquet(path)
-    for i in range(start_block, end_block+1, 150):
+    for i in range(start_block, end_block+1, step_block):
         if i == start_block:
             APR_df = create_APR(df, C_R_BASE)
             real_df = APR_df.filter(F.col("block_height").between(i, i+ timestamp_block))
@@ -89,4 +91,18 @@ def back_test(path: str, C_R_BASE: int,start_block: int, end_block: int, timesta
             merge_df = join_df(real_APR_df, unreal_APR_df)
             final_df = final_df.union(merge_df)
         
-    final_df.write.parquet("data/backtest_data") 
+    final_df.withColumn("res", F.when(final_df.real_APR > final_df.unreal_APR, 0).otherwise(1))
+    final_df.write.parquet("data/backtest_data")
+    truth = final_df.agg({"res" : "sum"}).collect()[0][0]
+    return truth / final_df.count()
+
+def get_back_test_result(spark):
+    final_df = spark.read.parquet("data/backtest_data")
+    if "res" not in final_df.columns:
+        final_df = final_df.withColumn("res", F.when(final_df.real_APR > final_df.unreal_APR, 0).otherwise(1))
+    truth = final_df.agg({"res" : "sum"}).collect()[0][0]
+    return truth / final_df.count()
+
+
+if __name__ == "__main__":
+    print("Accuracy:", get_back_test_result(get_spark()))

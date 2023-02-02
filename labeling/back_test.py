@@ -66,7 +66,7 @@ def join_df(real_df, predict_df):
     final_df = final_df.drop("sum_unreal_delta")
     return final_df
 
-def back_test(path: str, C_R_BASE: int,start_block: int, end_block: int, step_block: int, timestamp_block: int, col="predict"):
+def back_test(path: str, C_R_BASE: int,start_block: int, end_block: int, step_block: int, timestamp_block: int, col: str):
     df = spark.read.parquet(path)
     for i in range(start_block, end_block+1, step_block):
         if i == start_block:

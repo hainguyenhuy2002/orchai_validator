@@ -58,5 +58,6 @@ if __name__ == "__main__":
     parser.add_argument("--col", type=str, required=True, help="predict or score")
 
     args = parser.parse_args()
+    print(**vars(args))
 
     back_test(**vars(args))

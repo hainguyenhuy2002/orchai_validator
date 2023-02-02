@@ -41,11 +41,11 @@ def create_real_APR(real_df):
     realAPR_df = realAPR_df.withColumn("real_APR", F.col("sum_delta_APR_multiply") / F.col("sum_real_delta"))
     return realAPR_df
 
-def creat_unreal_APR(predict_df, realAPRdf, block_num):
+def create_unreal_APR(predict_df, realAPRdf, block_num, col):
     
        df_percen = predict_df.withColumn("block_num", F.lit(block_num))
        df_percen = df_percen.join(realAPRdf, on="block_num", how="left")
-       df_percen = df_percen.withColumn("unreal_delta", F.col("predict") * F.col("sum_real_delta"))
+       df_percen = df_percen.withColumn("unreal_delta", F.col(col) * F.col("sum_real_delta"))
        
        df_percen = df_percen.withColumn("unreal_delta_APR_multiply", F.col("APR") * F.col("unreal_delta"))
 
@@ -66,7 +66,7 @@ def join_df(real_df, predict_df):
     final_df = final_df.drop("sum_unreal_delta")
     return final_df
 
-def back_test(path: str, C_R_BASE: int,start_block: int, end_block: int, step_block: int, timestamp_block: int, save_to_file=True):
+def back_test(path: str, C_R_BASE: int,start_block: int, end_block: int, step_block: int, timestamp_block: int, col="predict"):
     df = spark.read.parquet(path)
     for i in range(start_block, end_block+1, step_block):
         if i == start_block:
@@ -77,7 +77,7 @@ def back_test(path: str, C_R_BASE: int,start_block: int, end_block: int, step_bl
             real_APR_df = create_real_APR(real_APR_df)
 
             predict_df = APR_df.filter(F.col("block_height") == i)
-            unreal_APR_df = creat_unreal_APR(predict_df, real_APR_df, i)
+            unreal_APR_df = create_unreal_APR(predict_df, real_APR_df, i, col=col)
             final_df = join_df(real_APR_df, unreal_APR_df)
         else:
             APR_df = create_APR(df, C_R_BASE)
@@ -87,14 +87,14 @@ def back_test(path: str, C_R_BASE: int,start_block: int, end_block: int, step_bl
             real_APR_df = create_real_APR(real_APR_df)
 
             predict_df = APR_df.filter(F.col("block_height") == i)
-            unreal_APR_df = creat_unreal_APR(predict_df, real_APR_df, i)
+            unreal_APR_df = create_unreal_APR(predict_df, real_APR_df, i, col=col)
             merge_df = join_df(real_APR_df, unreal_APR_df)
             final_df = final_df.union(merge_df)
         
     final_df.withColumn("res", F.when(final_df.real_APR > final_df.unreal_APR, 0).otherwise(1))
     final_df.write.parquet("data/backtest_data")
     truth = final_df.agg({"res" : "sum"}).collect()[0][0]
-    return truth / final_df.count()
+    print("Accuracy:", truth / final_df.count())
 
 def get_back_test_result(spark):
     final_df = spark.read.parquet("data/backtest_data")

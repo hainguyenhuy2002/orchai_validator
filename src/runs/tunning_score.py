@@ -38,6 +38,7 @@ if __name__ == "__main__":
                         spark=spark,
                         delete_old_file=True,
                         logger=logger)
+                    logger.write("Score acc")
                     logger.write(a, b, c, d, " Acc:", back_test(
                         path=config.dest.file,
                         C_R_BASE=Constants.C_R_BASE,
@@ -49,6 +50,7 @@ if __name__ == "__main__":
                         timestamp_block=432000,
                         col="score"
                     ))
+                    logger.write("Label acc")
                     logger.write(a, b, c, d, " Acc:", back_test(
                         path=config.dest.file,
                         C_R_BASE=Constants.C_R_BASE,
@@ -60,3 +62,4 @@ if __name__ == "__main__":
                         timestamp_block=432000,
                         col="label"
                     ))
+                    exit()

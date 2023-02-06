@@ -1,10 +1,11 @@
 import os
 import time
+import shutil
 import numpy as np
 import pyspark.sql.functions as F
 from orchai.constants import Constants
 from orchai.etl_processor import ETLProcessor
-from orchai.tools import get_spark, query, upload, get_max_height, psql_connect, to_parquet, get_logger
+from orchai.tools import get_spark, query, upload, get_max_height, psql_connect, to_parquet, get_logger, yes_no
 from functools import partial
 
 
@@ -118,8 +119,6 @@ def run_uploading(config, start_block: int, end_block: int, spark=None, show_int
     if hasattr(config.dest, "file"):
         if os.path.exists(config.dest.file):
             if delete_old_file is None:
-                import shutil
-                from orchai.tools import yes_no
                 if yes_no("| Delete " + config.dest.file):
                     shutil.rmtree(config.dest.file)
                 elif yes_no("| Exit ??"):

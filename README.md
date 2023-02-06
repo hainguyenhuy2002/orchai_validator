@@ -31,3 +31,5 @@ Get backtest result:
 ```
 python labeling/back_test.py
 ```
+
+python ./src/runs/tunning_score.py 

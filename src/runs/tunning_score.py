@@ -7,6 +7,7 @@ if __name__ == "__main__":
     from orchai.back_test import back_test
     from orchai.constants import Constants
     from omegaconf import OmegaConf
+    from functools import partial
 
     params = {
         "A": [7, 8, 9, 10],
@@ -31,6 +32,7 @@ if __name__ == "__main__":
                     config.hp.etl.B = b
                     config.hp.etl.C = c
                     config.hp.etl.D = d
+
                     run_uploading(
                         config=config,
                         start_block=start_block,
@@ -38,28 +40,19 @@ if __name__ == "__main__":
                         spark=spark,
                         delete_old_file=True,
                         logger=logger)
+                    
+                    acc = partial(back_test,
+                        path=config.dest.file,
+                        C_R_BASE=Constants.C_R_BASE,
+                        start_block=start_block,
+                        end_block=end_block,
+                        step_block=14400,
+                        timestamp_block=432000,
+                        spark=spark,
+                        save=True)
+
                     logger.write("Score acc")
-                    logger.write(a, b, c, d, " Acc:", back_test(
-                        path=config.dest.file,
-                        C_R_BASE=Constants.C_R_BASE,
-                        start_block=start_block,
-                        end_block=end_block,
-                        step_block=Constants.block_step,
-                        spark=spark,
-                        save=True,
-                        timestamp_block=432000,
-                        col="score"
-                    ))
+                    logger.write(a, b, c, d, " Acc:", acc(col="score"))
                     logger.write("Label acc")
-                    logger.write(a, b, c, d, " Acc:", back_test(
-                        path=config.dest.file,
-                        C_R_BASE=Constants.C_R_BASE,
-                        start_block=start_block,
-                        end_block=end_block,
-                        step_block=Constants.block_step,
-                        spark=spark,
-                        save=True,
-                        timestamp_block=432000,
-                        col="label"
-                    ))
+                    logger.write(a, b, c, d, " Acc:", acc(col="label"))
                     exit()

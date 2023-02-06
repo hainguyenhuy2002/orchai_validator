@@ -104,7 +104,7 @@ def back_test(path: str, C_R_BASE: int, start_block: int, end_block: int, step_b
     truth = final_df.agg({"res" : "sum"}).collect()[0][0]
     df_cnt = final_df.count()
 
-    return df_cnt
+    return truth / df_cnt
 
 
 def get_back_test_result(spark):

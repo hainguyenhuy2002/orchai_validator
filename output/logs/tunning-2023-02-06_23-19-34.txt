@@ -53,3 +53,8 @@ End. Duration: 56.15686774253845
 6 - 7982873 -> 8582873 : 4001.0
 Successfully query data from database
 Start validating:
+uploading data ...
+End. Duration: 60.843953132629395 
+
+7 - 8136773 -> 8736773 : 4001.0
+Successfully query data from database

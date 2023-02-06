@@ -1,5 +1,5 @@
 __pycache__
 .DS_Store
-command.txt
-validate_etl.txt
+commands
 view
+.vscode

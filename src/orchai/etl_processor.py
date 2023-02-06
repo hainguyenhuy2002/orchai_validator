@@ -1,5 +1,6 @@
 import pyspark.sql.functions as F
 from pyspark.sql import Window, DataFrame
+from orchai.constants import Constants
 
 
 class ETLProcessor(object):
@@ -16,7 +17,8 @@ class ETLProcessor(object):
         label_win_size: int
     ):
         """
-        Args:
+        Args
+        ----
             df: DataFrame want to get label
 
             accept_rate: Hyperparameter to calculate comission score
@@ -43,6 +45,9 @@ class ETLProcessor(object):
                 In here, I get a number of future blocks, take its mean and calculate my labels
             )
 
+        Return
+        ------
+            return shape of data frame:
 
         """
         df = ETLProcessor.preprocess(df)
@@ -80,11 +85,11 @@ class ETLProcessor(object):
     def preprocess(df: DataFrame):
         df = ETLProcessor.prefix_data(df)
         
-        ### Mapping False:0, True: 1
+        ### Mapping False: 0, True: 1
         for c in ["jailed", "vote", "propose"]:
             df = df.withColumn(c, F.col(c).cast("integer"))
 
-        ### FillNan for vote and propose
+        ### Fill Nan for vote and propose
         df = df.withColumn("vote", F.coalesce(F.col("vote"), F.lit(0)))
         df = df.withColumn("propose", F.coalesce(F.col("propose"), F.lit(0)))
 
@@ -96,7 +101,7 @@ class ETLProcessor(object):
         )
         df = df.join(num_val_blocks_df, on="block_height", how="left")
 
-        ### TOtal tokens in each block
+        ### Total tokens in each block
         token_block_df = (
             df.groupBy("block_height")
               .agg({"tokens": "sum"})
@@ -130,8 +135,6 @@ class ETLProcessor(object):
               .agg({"tokens": "max"})
               .withColumnRenamed("max(tokens)", "max_tokens_per_block")
         )
-
-        ### Join max_tokens into dataframe
         df = df.join(max_token_df, on="block_height", how="left")
 
         df = df.withColumn("voting_power_score", 1 - df.tokens / df.max_tokens_per_block)
@@ -140,9 +143,9 @@ class ETLProcessor(object):
             F.when(df.tokens / df.total_token_amt_per_block > (2 / df.validators_count_per_block), 0)
              .otherwise(df.voting_power_score)
         )
+
         df = df.drop("max_tokens_per_block")
 
-        ### checked ;)
         return df
 
     @staticmethod
@@ -175,8 +178,8 @@ class ETLProcessor(object):
 
     @staticmethod
     def vote_score(df: DataFrame, vote_proposed_win_size: int):
-        assert vote_proposed_win_size % 150 == 0, "150 must be divisible by vote_proposed_win_size"
-        size = vote_proposed_win_size // 150 - 1
+        assert vote_proposed_win_size % Constants.block_step == 0, "150 must be divisible by vote_proposed_win_size"
+        size = vote_proposed_win_size // Constants.block_step - 1
 
         ### Window for moving average step
         ### Step now row and last "size" row

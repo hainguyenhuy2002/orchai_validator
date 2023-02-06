@@ -1,16 +1,17 @@
-from pyspark.sql import SparkSession, DataFrame, Window
 if __name__ == "__main__":
     import os, sys
     sys.path.append(os.getcwd())
-from labeling.upload import get_spark
+
+from orchai.upload import get_spark
+from pyspark.sql import DataFrame, Window
 import pyspark.sql.functions as F
 
-spark = get_spark()
-C_R_BASE = 0.1
-def create_APR(df, C_R_BASE):
+
+def create_APR(df: DataFrame, C_R_BASE):
     df = df.withColumn("1-c_r", (1 - F.col("commission_rate"))).orderBy("operator_address", "block_height")
     df = df.withColumn("APR", (1/(1-C_R_BASE) * (1- F.col("commission_rate"))))
     return df
+
 
 def create_delta(df: DataFrame, block_num):
     w = Window.partitionBy('operator_address').orderBy('block_height').rowsBetween(Window.unboundedPreceding, Window.unboundedFollowing)
@@ -28,8 +29,8 @@ def create_delta(df: DataFrame, block_num):
     )
     df_delta = df_delta.withColumn("block_num", F.lit(block_num))
     
-
     return df_delta
+
 
 def create_real_APR(real_df):
     df = real_df.withColumn("delta_APR_multiply", F.col("APR") * F.col("real_delta"))
@@ -40,6 +41,7 @@ def create_real_APR(real_df):
                 .withColumnRenamed("sum(real_delta)", "sum_real_delta")
     realAPR_df = realAPR_df.withColumn("real_APR", F.col("sum_delta_APR_multiply") / F.col("sum_real_delta"))
     return realAPR_df
+
 
 def create_unreal_APR(predict_df, realAPRdf, block_num, col):
     
@@ -58,6 +60,7 @@ def create_unreal_APR(predict_df, realAPRdf, block_num, col):
 
        return unrealAPR_df
 
+
 def join_df(real_df, predict_df):
     final_df = real_df.join(predict_df, on="block_num", how="right")
     final_df = final_df.drop("sum_delta_APR_multiply")
@@ -66,12 +69,15 @@ def join_df(real_df, predict_df):
     final_df = final_df.drop("sum_unreal_delta")
     return final_df
 
-def back_test(path: str, C_R_BASE: int,start_block: int, end_block: int, step_block: int, timestamp_block: int, col: str):
+
+def back_test(path: str, C_R_BASE: int, start_block: int, end_block: int, step_block: int, timestamp_block: int, col: str, spark=None, save: bool=True):
+    spark = get_spark() if spark is None else spark
     df = spark.read.parquet(path)
+
     for i in range(start_block, end_block+1, step_block):
         if i == start_block:
             APR_df = create_APR(df, C_R_BASE)
-            real_df = APR_df.filter(F.col("block_height").between(i, i+ timestamp_block))
+            real_df = APR_df.filter(F.col("block_height").between(i, i + timestamp_block))
 
             real_APR_df = create_delta(real_df, i)
             real_APR_df = create_real_APR(real_APR_df)
@@ -81,7 +87,7 @@ def back_test(path: str, C_R_BASE: int,start_block: int, end_block: int, step_bl
             final_df = join_df(real_APR_df, unreal_APR_df)
         else:
             APR_df = create_APR(df, C_R_BASE)
-            real_df = APR_df.filter(F.col("block_height").between(i, i+ timestamp_block))
+            real_df = APR_df.filter(F.col("block_height").between(i, i + timestamp_block))
 
             real_APR_df = create_delta(real_df, i)
             real_APR_df = create_real_APR(real_APR_df)
@@ -92,9 +98,14 @@ def back_test(path: str, C_R_BASE: int,start_block: int, end_block: int, step_bl
             final_df = final_df.union(merge_df)
         
     final_df = final_df.withColumn("res", F.when(final_df.real_APR > final_df.unreal_APR, 0).otherwise(1))
-    final_df.write.parquet("data/backtest_data")
+    if save:
+        final_df.write.parquet("data/backtest_data")
+
     truth = final_df.agg({"res" : "sum"}).collect()[0][0]
-    print("Accuracy:", truth / final_df.count())
+    df_cnt = final_df.count()
+
+    return df_cnt
+
 
 def get_back_test_result(spark):
     final_df = spark.read.parquet("data/backtest_data")

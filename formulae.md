@@ -89,4 +89,4 @@ $score = \frac{score}{max\_score}$
     + input:
       + data: from table validator_block
       + weights: weight for 4 scores
-      + 
+

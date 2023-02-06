@@ -1,0 +1,18 @@
+| Intervals:
+0 - 7059473 -> 7071323 : 80.0
+1 - 7069823 -> 7076123 : 43.0
+| Start
+0 - 7059473 -> 7071323 : 80.0
+Successfully query data from database
+Start validating:
+start-end final blocks: 7059923 7070123
+uploading data ...
+Duration: 20.59173893928528 
+
+1 - 7069823 -> 7076123 : 43.0
+Successfully query data from database
+Start validating:
+start-end final blocks: 7070273 7074923
+uploading data ...
+Duration: 7.258806228637695 
+

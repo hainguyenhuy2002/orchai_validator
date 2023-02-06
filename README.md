@@ -1,7 +1,7 @@
 # orchai_validator
 ```
 python ./runs/uploader.py -cf ./config/local_db.yaml    -s 7059473 -e 7071323
-python ./runs/uploader.py -cf ./config/local_file.yaml  -s 7059473 -e 7071323
+python ./runs/uploader.py -cf ./config/local_file.yaml  -s 7059473 -e 7076123
 python ./runs/uploader.py -cf ./config/local_db.yaml    -s 7059473 -e 7083323
 python ./runs/uploader.py -cf ./config/local_file.yaml  -s 7059473 -e 7083323
 
@@ -17,7 +17,7 @@ python ./runs/validate_etl.py -c ./config/etl.yaml
 python ./runs/validate_etl.py -c ./config/local_full.yaml
 ```
 # back test
-Small test set in  the interval of 1 month (test each day for 1 monthdata )
+Small test set in  the interval of 1 month (test each day for 1 month data)
 ```
 python ./runs/backtester.py -p ./data/percent.parquet  -cr 0.1  -s 7103573  -e 7535573 -st 14400 -t 432000 
 ```

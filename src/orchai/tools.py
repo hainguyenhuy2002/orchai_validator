@@ -1,6 +1,8 @@
 from pyspark.sql import SparkSession, DataFrame
 from typing import Union
 import psycopg2
+import os
+from datetime import datetime as dt
 
 
 __psql_connect__ = {}
@@ -51,8 +53,6 @@ def query(
         .option("dbtable", table)
         .load()
     )
-
-    print("Successfully queried data from database")
     return df
 
 
@@ -118,3 +118,23 @@ def yes_no(msg: str):
             return False
         if ans.lower() == 'y':
             return True
+        
+
+class Logger:
+    def __init__(self, file_path: str) -> None:
+        file_path = os.path.abspath(file_path)
+        file_dir = os.path.dirname(file_path)
+        os.makedirs(file_dir, exist_ok=True)
+        self.file_path = file_path
+
+    def write(self, *msg, end="\n", sep=" "):
+        print(*msg, end=end, sep=sep)
+        file = open(file=self.file_path, mode="a", encoding="utf-8")
+        print(*msg, end=end, sep=sep, file=file)
+        file.close()
+        del file
+
+
+def get_logger(name: str, log_dir="output/logs"):
+    name = name + "-" + dt.now().strftime('%Y-%m-%d_%H-%M-%S') + ".txt"
+    return Logger(file_path=os.path.join(log_dir, name))

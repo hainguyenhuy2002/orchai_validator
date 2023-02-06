@@ -4,19 +4,12 @@ from omegaconf import OmegaConf
 
 if __name__ == "__main__":
     import os, sys
-    sys.path.append(os.getcwd())
+    sys.path.append(os.path.join(os.getcwd(), "src"))
     
-    from labeling.upload import main
+    from orchai.upload import run_uploading
     
     parser = ArgumentParser()
     parser.add_argument("-cf", "--config", type=str, required=True, help="Path to config file (.yaml)")
-    parser.add_argument(
-        "-cp",
-        "--checkpoint",
-        type=str,
-        default=None,
-        help="Path to checkpoint. If no checkpoint then new checkpoint will be create at output/ckpt",
-    )
     parser.add_argument(
         "-s", 
         "--start_block", 
@@ -32,7 +25,14 @@ if __name__ == "__main__":
         help="If start block is not given, it will be detected in checkpoint. Prefer checkpoint"
     )
 
+    parser.add_argument(
+        "-d", 
+        "--delete_old_file", 
+        type=bool, 
+        default=None, 
+    )
+
     args = parser.parse_args()
     args.config = OmegaConf.load(args.config)
     
-    main(**vars(args))
+    run_uploading(**vars(args))

@@ -1,5 +1,4 @@
 from argparse import ArgumentParser
-from omegaconf import OmegaConf
 
 
 if __name__ == "__main__":
@@ -7,7 +6,7 @@ if __name__ == "__main__":
     import sys
     sys.path.append(os.getcwd())
 
-    from labeling.back_test import back_test
+    from orchai.back_test import back_test
 
     parser = ArgumentParser()
     parser.add_argument(

@@ -6,10 +6,13 @@ import pyspark.sql.functions as F
 from orchai.constants import Constants
 from orchai.etl_processor import ETLProcessor
 from orchai.tools import get_spark, query, upload, get_max_height, psql_connect, to_parquet, get_logger, yes_no
-from functools import partial
 
 
-print = partial(print)
+__logger__ = None
+
+def print(*msg):
+    global __logger__
+    __logger__.write(*msg)
 
 
 def sampling(spark, config, from_block: int, to_block: int):
@@ -51,12 +54,12 @@ def validating(df, last_end_block: int=None):
 
     if last_end_block is not None:
         if block_heights[0] - last_end_block != Constants.block_step:
-            print("error block (last end):", last_end_block, block_heights[0])
+            print("error block (last end):", last_end_block, block_heights[0], block_heights[0] - last_end_block)
 
     diff = np.diff(block_heights)
     for i, d in enumerate(diff):
         if d != Constants.block_step:
-            print("error block:", block_heights[i], block_heights[i + 1])
+            print("error block:", block_heights[i], block_heights[i + 1], d)
     return block_heights[-1]
         
 
@@ -104,7 +107,7 @@ def get_batches(start_block, end_block, batch_size, vote_proposed_win_size, labe
     return intervals
 
 
-def run_uploading(config, start_block: int, end_block: int, spark=None, show_intervals=True, delete_old_file: bool=None, logger=None):
+def run_uploading(config, start_block: int, end_block: int, spark=None, show_intervals=True, delete_old_file: bool=None, logger=None, skip_validate: bool=False):
     block_step             = Constants.block_step
     assert (end_block - start_block) % block_step == 0
     vote_proposed_win_size  = config.hp.etl.vote_proposed_win_size
@@ -114,7 +117,8 @@ def run_uploading(config, start_block: int, end_block: int, spark=None, show_int
     assert max_height >= end_block, f"End block ({end_block}) excceed max block height ({max_height})"
 
     logger = get_logger("uploading") if logger is None else logger
-    print = partial(logger.write)
+    global __logger__
+    __logger__ = logger
 
     if hasattr(config.dest, "file"):
         if os.path.exists(config.dest.file):
@@ -156,8 +160,9 @@ def run_uploading(config, start_block: int, end_block: int, spark=None, show_int
         
         df = ETLProcessor.data_scoring(df, **config.hp.etl)
 
-        print("Start validating:")
-        last_end_block = validating(df, last_end_block)
+        if not skip_validate:
+            print("Start validating:")
+            last_end_block = validating(df, last_end_block)
 
         print("uploading data ...")
         uploading(df, config)

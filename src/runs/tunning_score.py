@@ -40,7 +40,7 @@ if __name__ == "__main__":
                         spark=spark,
                         delete_old_file=True,
                         logger=logger)
-                    # exit()
+                    exit()
                     
                     acc = partial(back_test,
                         path=config.dest.file,

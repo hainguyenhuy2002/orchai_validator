@@ -3,6 +3,19 @@ from pyspark.sql import Window, DataFrame
 from orchai.constants import Constants
 
 
+def validating(dff):
+    import numpy as np
+    block_heights = dff.groupBy("block_height").count().select(F.col("block_height"))
+    block_heights = block_heights.toPandas().to_numpy().reshape((-1,))
+    block_heights.sort()
+    print("start-end final blocks:", block_heights[0], block_heights[-1])
+
+    diff = np.diff(block_heights)
+    for i, d in enumerate(diff):
+        if d != 150:
+            print("error block:", block_heights[i], block_heights[i + 1], d)
+
+
 class ETLProcessor(object):
     @staticmethod
     def data_scoring(
@@ -52,38 +65,49 @@ class ETLProcessor(object):
         """
         df = ETLProcessor.preprocess(df)
         print("------------------------------------------------")
+        validating(df)
        
         df = ETLProcessor.voting_power_score(df)
         print("Successfully converted voting_power_score column")
         print("------------------------------------------------")
+        validating(df)
 
         df = ETLProcessor.commission_score(df, accept_rate)
         print("Successfully converted commission_score column")
         print("------------------------------------------------")
+        validating(df)
 
         df = ETLProcessor.self_bonded_score(df, concentration_level)
         print("Successfully converted self_bonded_score column")
         print("------------------------------------------------")
+        validating(df)
 
         df = ETLProcessor.vote_score(df, vote_proposed_win_size)
         print("Successfully converted vote_propose_score column")
         print("------------------------------------------------")
+        validating(df)
 
         df = ETLProcessor.final_score(df, A, B, C, D)
         print("Sucessfully converted final_score")
         print("------------------------------------------------")
+        validating(df)
 
         df = ETLProcessor.shifting_data(df, label_win_size)
         print("Sucessfully shifting data")
         print("------------------------------------------------")
+        validating(df)
 
         df = ETLProcessor.postprocess(df)
+        validating(df)
         
         return df
 
     @staticmethod
     def preprocess(df: DataFrame):
-        df = ETLProcessor.prefix_data(df)
+        df = df.withColumn("commission_rate",   (F.col("commission_rate") / 10**18))
+        df = df.withColumn("self_bonded",       (F.col("self_bonded") / 10**18))
+        df = df.withColumn("delegators_token",  (df.tokens - df.self_bonded))
+        df = df.drop("delegator_shares")
         
         ### Mapping False: 0, True: 1
         for c in ["jailed", "vote", "propose"]:
@@ -118,14 +142,6 @@ class ETLProcessor(object):
         df = df.join(self_bond_block_df, on="block_height", how="left")
 
         return df
-
-    @staticmethod
-    def prefix_data(df: DataFrame):
-        df = df.withColumn("commission_rate", (F.col("commission_rate") / 10**18))
-        df = df.withColumn("self_bonded", (F.col("self_bonded") / 10**18))
-        df = df.withColumn("delegators_token", (df.tokens - df.self_bonded))
-        df = df.drop("delegator_shares")
-        return df  
 
     @staticmethod
     def voting_power_score(df: DataFrame):

@@ -33,14 +33,13 @@ if __name__ == "__main__":
                     config.hp.etl.C = c
                     config.hp.etl.D = d
 
-                    run_uploading(
-                        config=config,
-                        start_block=start_block,
-                        end_block=end_block, 
-                        spark=spark,
-                        delete_old_file=True,
-                        logger=logger)
-                    exit()
+                    # run_uploading(
+                    #     config=config,
+                    #     start_block=start_block,
+                    #     end_block=end_block, 
+                    #     spark=spark,
+                    #     delete_old_file=True,
+                    #     logger=logger)
                     
                     acc = partial(back_test,
                         path=config.dest.file,
@@ -50,10 +49,10 @@ if __name__ == "__main__":
                         step_block=14400,
                         timestamp_block=432000,
                         spark=spark,
-                        save=True)
+                        save=False)
 
                     logger.write("Score acc")
                     logger.write(a, b, c, d, " Acc:", acc(col="score"))
+                    exit()
                     logger.write("Label acc")
                     logger.write(a, b, c, d, " Acc:", acc(col="label"))
-                    exit()

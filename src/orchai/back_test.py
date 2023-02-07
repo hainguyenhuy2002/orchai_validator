@@ -14,8 +14,8 @@ def create_APR(df: DataFrame, C_R_BASE):
 
 
 def create_delta(df: DataFrame, block_num):
-    w = Window.partitionBy('operator_address').orderBy('block_height').rowsBetween(Window.unboundedPreceding, Window.unboundedFollowing)
-    df = df.withColumn('subtract_de_token', F.when(
+    w = Window.partitionBy("operator_address").orderBy("block_height").rowsBetween(Window.unboundedPreceding, Window.unboundedFollowing)
+    df = df.withColumn("subtract_de_token", F.when(
         (F.col("delegators_token")-F.first("delegators_token").over(w))>0 \
         ,F.col("delegators_token")-F.first("delegators_token").over(w))\
         .otherwise(0))
@@ -71,37 +71,42 @@ def join_df(real_df, predict_df):
 
 
 def back_test(path: str, C_R_BASE: int, start_block: int, end_block: int, step_block: int, timestamp_block: int, col: str, spark=None, save: bool=True):
-    spark = get_spark() if spark is None else spark
-    df = spark.read.parquet(path)
+    spark       = get_spark() if spark is None else spark
+    df          = spark.read.parquet(path)
+    df          = df.select(["block_height", "operator_address", "delegators_token", "commission_rate", col])
+    col_sum_df  = df.groupBy("block_height").agg({col: "sum"})
+    df          = df.join(col_sum_df, how="left", on="block_height")
+    df          = df.withColumn("percent", F.col(f"sum({col})"))
+    df          = df.drop(f"sum({col})")
+    df.printSchema()
+    APR_df      = create_APR(df, C_R_BASE)
 
     for i in range(start_block, end_block+1, step_block):
         if i == start_block:
-            APR_df = create_APR(df, C_R_BASE)
             real_df = APR_df.filter(F.col("block_height").between(i, i + timestamp_block))
 
             real_APR_df = create_delta(real_df, i)
             real_APR_df = create_real_APR(real_APR_df)
 
             predict_df = APR_df.filter(F.col("block_height") == i)
-            unreal_APR_df = create_unreal_APR(predict_df, real_APR_df, i, col=col)
+            unreal_APR_df = create_unreal_APR(predict_df, real_APR_df, i, col="percent")
             final_df = join_df(real_APR_df, unreal_APR_df)
         else:
-            APR_df = create_APR(df, C_R_BASE)
             real_df = APR_df.filter(F.col("block_height").between(i, i + timestamp_block))
 
             real_APR_df = create_delta(real_df, i)
             real_APR_df = create_real_APR(real_APR_df)
 
             predict_df = APR_df.filter(F.col("block_height") == i)
-            unreal_APR_df = create_unreal_APR(predict_df, real_APR_df, i, col=col)
+            unreal_APR_df = create_unreal_APR(predict_df, real_APR_df, i, col="percent")
             merge_df = join_df(real_APR_df, unreal_APR_df)
             final_df = final_df.union(merge_df)
         
-    final_df = final_df.withColumn("res", F.when(final_df.real_APR > final_df.unreal_APR, 0).otherwise(1))
+    final_df = final_df.withColumn("result", F.when(final_df.real_APR > final_df.unreal_APR, 0).otherwise(1))
     if save:
         final_df.write.parquet("data/backtest_data")
 
-    truth = final_df.agg({"res" : "sum"}).collect()[0][0]
+    truth = final_df.agg({"result" : "sum"}).collect()[0][0]
     df_cnt = final_df.count()
 
     return truth / df_cnt

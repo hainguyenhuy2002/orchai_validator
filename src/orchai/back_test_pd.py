@@ -1,6 +1,7 @@
 import pandas as pd
 import decimal
 from tqdm import tqdm
+from functools import partial
 
 
 def cal_delta(df: pd.DataFrame):
@@ -21,6 +22,21 @@ def cal_reward(row: pd.Series, col_in, col_out):
     return row
 
 
+def process_item(df: pd.DataFrame, start, end, col):
+    df                  = df[(df["block_height"] >= start) & (df["block_height"] <= end)]
+    df                  = df.groupby("operator_address").apply(cal_delta)
+    df                  = df.apply(cal_reward, axis=1, col_in="delta", col_out="real_reward")
+    df[col]             = df[col] / df[col].sum()
+    df                  = df.apply(cal_reward, axis=1, col_in=col, col_out="fake_reward")
+    total_ud            = df["delta"].sum()
+    df["fake_reward"]   = df["fake_reward"] * total_ud
+    return {
+        "block_height": df["block_height"].iloc[0],
+        "real_reward" : df["real_reward"].sum(),
+        "fake_reward" : df["fake_reward"].sum()
+    }
+    
+
 def back_test(df: pd.DataFrame, start: int, end: int, hop_size: int, win_size: int, col):
     df = df[["block_height", "operator_address", "delegators_token", "commission_rate", col]]
     results = {
@@ -29,21 +45,18 @@ def back_test(df: pd.DataFrame, start: int, end: int, hop_size: int, win_size: i
         "fake_reward"  : [],
     }
 
-    for sb in tqdm([sb for sb in range(start, end, hop_size) if sb + win_size - 1 <= end]):
-        eb = sb + win_size - 1
+    process = partial(process_item, df=df, col=col)
+    args = [{
+        "start": sb,
+        "end": sb + win_size - 1
+    } for sb in range(start, end, hop_size) if sb + win_size - 1 <= end]
 
-        new_df                  = df[(df["block_height"] >= sb) & (df["block_height"] <= eb)]
-        new_df                  = new_df.groupby("operator_address").apply(cal_delta)
-        new_df                  = new_df.apply(cal_reward, axis=1, col_in="delta", col_out="real_reward")
-        new_df[col]             = new_df[col] / new_df[col].sum()
-        new_df                  = new_df.apply(cal_reward, axis=1, col_in=col, col_out="fake_reward")
-        total_ud                = new_df["delta"].sum()
-        new_df["fake_reward"]   = new_df["fake_reward"] * total_ud
+    for arg in tqdm(args):
+        result = process(**arg)
+        results["block_height"].append(result["block_height"])
+        results["real_reward"].append(result["real_reward"])
+        results["fake_reward"].append(result["fake_reward"])
 
-        results["block_height"].append(new_df["block_height"].iloc[0])
-        results["real_reward"].append(new_df["real_reward"].sum())
-        results["fake_reward"].append(new_df["fake_reward"].sum())
-    
     return pd.DataFrame.from_dict(results)
 
 

@@ -3,19 +3,19 @@ import decimal
 from tqdm import tqdm
 from functools import partial
 from math import log
-
+#Decentralied back tgest
 #Use Pielou's Evenness
 
-def decentralize_backtest(df,start ,end, hop_size):
+def dec_score(df:pd.DataFrame, col:str):
     
-    df = df[(df['block_height']<= end) &(df['block_height'] >= start) &(df['block_height']% hop_size == start % hop_size)].sort_values('block_height')
+    # df = df[(df['block_height']<= end) &(df['block_height'] >= start) &(df['block_height']% hop_size == start % hop_size)].sort_values('block_height')
     def calculate(df: pd.DataFrame):
-        df['mean'] = df['tokens'].mean()
-        df['pi'] = df['tokens']/df['tokens'].sum()
+        df['count'] = df[col].count()
+        df['pi'] = df[col]/df[col].sum()
         df['ln(pi)'] = df['pi'].apply(lambda x: log(x))
         df['pi_mul_ln(pi)'] = df['pi'] * df['ln(pi)']
         df['total'] = df['pi_mul_ln(pi)'].sum()
-        df['decentralized_score'] = df['total'].apply(lambda x: abs(x))/ df['mean'].apply(lambda x: log(x))
+        df['decentralized_score'] = df['total'].apply(lambda x: abs(x))/ df['count'].apply(lambda x: log(x))
 
         return df
 
@@ -23,6 +23,52 @@ def decentralize_backtest(df,start ,end, hop_size):
     df = df.groupby('block_height').agg({"decentralized_score":"mean"}).reset_index()
     return df
 
+def preprocess(df:pd.DataFrame, predicted_col: str, start: int, end_time_stamp: int):
+    df = df[(df['block_height']<= end_time_stamp) &(df['block_height'] >= start)]
+    
+    df = df.groupby("operator_address").apply(cal_delta)
+    # df = df.drop(['operator_address', 'delegators_token'], axis = 1).reset_index()
+    df["unreal_tokens"] = df['self_bonded'] + df[predicted_col]*(df['delta'].sum())/(df[predicted_col].sum())
+    return df
+
+
+def back_test_decentralized(df:pd.DataFrame, start:int, end: int, hop_size: int,win_size: int, predicted_col:str):
+    #change type of columns to float
+    df1 = df.drop('operator_address',axis = 1)
+    df[df1.columns] = df[df1.columns].apply(pd.to_numeric)
+    #starting for
+    for i in range(start, end+1, hop_size):
+        if i == start:    
+            preprocecss_df = preprocess(df, predicted_col, i, i+ win_size)
+
+            df_real_dec = dec_score(preprocecss_df,'tokens').rename(columns={'decentralized_score': 'real_decentralized_score'})
+
+            df_unreal_dec = dec_score(preprocecss_df,'unreal_tokens').rename(columns={'decentralized_score': 'unreal_decentralized_score'})
+
+            df_dec_final = df_real_dec.merge(df_unreal_dec, on = 'block_height', how = 'left')
+        else:
+            preprocecss_df = preprocess(df, predicted_col, i, i+ win_size)
+
+            df_real_dec = dec_score(preprocecss_df,'tokens').rename(columns={'decentralized_score': 'real_decentralized_score'})
+
+            df_unreal_dec = dec_score(preprocecss_df,'unreal_tokens').rename(columns={'decentralized_score': 'unreal_decentralized_score'})
+            df_tem = df_real_dec.merge(df_unreal_dec, on = 'block_height', how = 'left')
+            df_dec_final = pd.concat([df_dec_final, df_tem])
+
+            df_dec_final['compare'] = (df_dec_final['unreal_decentralized_score'] >= df_dec_final['real_decentralized_score'])
+
+            df_dec_final['accuracy'] = (df_dec_final['unreal_decentralized_score'] >= df_dec_final['real_decentralized_score']) / df_dec_final.shape[0]
+
+            summarze = df_dec_final.agg({"accuracy":"sum"})
+
+            df_final = df_dec_final.drop('accuracy', axis = 1)
+    return summarze, df_final
+
+
+  
+
+
+#Reward back test
 def cal_delta(df: pd.DataFrame):
     df              = df.sort_values("block_height")
     num             = df.shape[0]
@@ -85,5 +131,6 @@ if __name__ == "__main__":
     
     print(dt[dt["real_reward"] <= dt["fake_reward"]].shape[0] / dt.shape[0])
 
-    dc = decentralize_backtest(df, start =7059473, end = 9583823, hop_size=14400 )
-    print()
+    summarize, df_decentralized = back_test_decentralized(df, start=7059473, end=9583823, hop_size=14400, win_size=432000, predicted_col="score")  
+    #summarize is Series, df_centralized is dataframe
+    print(summarize[0])

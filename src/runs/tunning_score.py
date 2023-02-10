@@ -1,6 +1,7 @@
 import pandas as pd
 
 
+
 def cal_score(row: pd.Series, A, B, C, D):
     row["score"] = (
         A * row["voting_power_score"] 
@@ -17,56 +18,35 @@ def clone(filepath: str, A, B, C, D):
     return df
 
 
-ITER = 0
-MIN_ITER = None
-MAX_ITER = None
-
-
-def get_params(param_grid: dict, keys: list=None, params: dict=None):
-    if params is None:
-        params = {}
-    
-    if keys is None:
-        keys = []
-
-    if len(param_grid) == len(keys):
-        global ITER
-        global MIN_ITER
-        ITER += 1
-        min_iter = MIN_ITER if MIN_ITER is not None else ITER - 1
-        max_iter = MAX_ITER if MAX_ITER is not None else ITER + 1
-        if min_iter <= ITER <= max_iter:
-            yield params
-    else:
-        for k, v in param_grid.items():
-            if k not in keys:
-                params.update({k: v})
-                keys.append(k)
-                get_params(param_grid, keys, params)
-                keys.pop()
+def get_params(param_grid: dict, start=None, end=None):
+    def _get_params(param_grid: dict, idx: int, item: dict, params: list):
+        if len(param_grid) == idx:
+                params.append({k: v for k, v in item.items()})
+        else:
+            for i, k in enumerate(param_grid.keys()):
+                if i == idx:
+                    for v in param_grid[k]:
+                        item.update({k: v})
+                        _get_params(param_grid, idx=idx + 1, item=item, params=params)
+                    break
+    params = []
+    _get_params(param_grid, 0, {}, params)
+    return params[start : end]
 
 
 if __name__ == "__main__":
-    param_grid = {
-        "A": [7, 8, 9, 10],
-        "B": [7, 8, 9, 10],
-        "C": [2, 3, 4],
-        "D": [7, 8, 9, 10],
-    }
-
-    for p in get_params(param_grid):
-        print(**p)
-
-    exit()
-
     import os, sys
     sys.path.append(os.path.join(os.getcwd(), "src"))
 
     from orchai.tools import get_spark, get_logger
-    from orchai.back_test_pd import back_test
-    from orchai.constants import Constants
+    from orchai.back_test_pd import back_test_reward
     from omegaconf import OmegaConf
-    from functools import partial
+    from argparse import ArgumentParser
+
+    parser = ArgumentParser()
+    parser.add_argument("-s", "--start", type=int, default=None, help="Start iter")
+    parser.add_argument("-e", "--end",   type=int, default=None, help="End iter")
+    args = parser.parse_args()
 
     param_grid = {
         "A": [7, 8, 9, 10],
@@ -75,30 +55,34 @@ if __name__ == "__main__":
         "D": [7, 8, 9, 10],
     }
 
-    start_block = 7059473
-    end_block = 9583823
-    config_file = "config/etl_file_1m.yaml"
-    filepath = "data/etl_parquet_1m_no_score"
+    start_block     = 7059473
+    end_block       = 9583823
+    config_file     = "config/etl_file_1m.yaml"
+    filepath        = "data/etl_parquet_1m_no_score"
+    config          = OmegaConf.load(config_file)
+    spark           = get_spark()
+    logger          = get_logger('tunning')
+    best_acc        = 0
+    best_param      = []
 
-    config = OmegaConf.load(config_file)
-    spark = get_spark()
-    logger = get_logger('tunning')
+    for p in get_params(param_grid, start=args.start, end=args.end):
+        print(p)
+        df = clone(filepath, **p)
+        
+        acc = back_test_reward(
+            df,
+            start=start_block,
+            end=end_block,
+            hop_size=14400,
+            win_size=432000,
+            col="score"
+        )
 
-    for a in param_grid["A"]:
-        for b in param_grid["B"]:
-            for c in param_grid["C"]:
-                for d in param_grid["D"]:
-                    df = clone(filepath, a, b, c, d)
-                    
-                    acc = back_test(
-                        df,
-                        start=start_block,
-                        end=end_block,
-                        hop_size=14400,
-                        win_size=432000,
-                        col="score"
-                    )
+        if acc == best_acc:
+            best_param.append(p)
+        if acc > best_acc:
+            best_acc = acc
+            best_param = [p]
 
-                    logger.write("Score acc")
-                    logger.write(a, b, c, d, " Acc:", acc)
-                    exit()
+        logger.write(p, "Acc:", acc)
+        exit()

@@ -37,7 +37,7 @@ def process_item(df: pd.DataFrame, start, end, col):
     }
     
 
-def back_test(df: pd.DataFrame, start: int, end: int, hop_size: int, win_size: int, col):
+def back_test_reward(df: pd.DataFrame, start: int, end: int, hop_size: int, win_size: int, col):
     df = df[["block_height", "operator_address", "delegators_token", "commission_rate", col]]
     results = {
         "block_height" : [],
@@ -62,5 +62,5 @@ def back_test(df: pd.DataFrame, start: int, end: int, hop_size: int, win_size: i
 
 if __name__ == "__main__":
     df = pd.read_parquet("data/etl_parquet_1m")
-    dt = back_test(df, start=7059473, end=9583823, hop_size=14400, win_size=432000, col="score")
+    dt = back_test_reward(df, start=7059473, end=9583823, hop_size=14400, win_size=432000, col="score")
     print(dt[dt["real_reward"] <= dt["fake_reward"]].shape[0] / dt.shape[0])

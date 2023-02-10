@@ -126,6 +126,7 @@ class Logger:
         file_dir = os.path.dirname(file_path)
         os.makedirs(file_dir, exist_ok=True)
         self.file_path = file_path
+        self.write("| Start logging at", file_path)
 
     def write(self, *msg, end="\n", sep=" "):
         print(*msg, end=end, sep=sep)

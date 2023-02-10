@@ -22,12 +22,13 @@ class ETLProcessor(object):
         df: DataFrame,
         accept_rate: float,
         concentration_level: float,
-        A: int,
-        B: int,
-        C: int,
-        D: int,
         vote_proposed_win_size: int,
-        label_win_size: int
+        label_win_size: int,
+        B: int = None,
+        A: int = None,
+        C: int = None,
+        D: int = None,
+        cal_score: bool = True
     ):
         """
         Args
@@ -63,42 +64,48 @@ class ETLProcessor(object):
             return shape of data frame:
 
         """
+        if cal_score:
+            if A is None or B is None or C is None or D is None:
+                raise ValueError("A, B, C, D must not be None")
+
         df = ETLProcessor.preprocess(df)
         print("------------------------------------------------")
-        validating(df)
        
+        df = ETLProcessor.vote_score(df, vote_proposed_win_size)
+        print("Successfully converted vote_propose_score column")
+        # validating(df)
+        print("------------------------------------------------")
+
         df = ETLProcessor.voting_power_score(df)
         print("Successfully converted voting_power_score column")
+        # validating(df)
         print("------------------------------------------------")
-        validating(df)
 
         df = ETLProcessor.commission_score(df, accept_rate)
         print("Successfully converted commission_score column")
+        # validating(df)
         print("------------------------------------------------")
-        validating(df)
 
         df = ETLProcessor.self_bonded_score(df, concentration_level)
         print("Successfully converted self_bonded_score column")
+        # validating(df)
         print("------------------------------------------------")
-        validating(df)
 
-        df = ETLProcessor.vote_score(df, vote_proposed_win_size)
-        print("Successfully converted vote_propose_score column")
-        print("------------------------------------------------")
-        validating(df)
+        if cal_score:
+            df = ETLProcessor.final_score(df, A, B, C, D)
+            print("Sucessfully converted final_score")
+            # validating(df)
+            print("------------------------------------------------")
 
-        df = ETLProcessor.final_score(df, A, B, C, D)
-        print("Sucessfully converted final_score")
-        print("------------------------------------------------")
-        validating(df)
-
-        df = ETLProcessor.shifting_data(df, label_win_size)
-        print("Sucessfully shifting data")
-        print("------------------------------------------------")
-        validating(df)
+            df = ETLProcessor.shifting_data(df, label_win_size)
+            print("Sucessfully shifting data")
+            # validating(df)
+            print("------------------------------------------------")
+        else:
+            print("Skip calculating score")
+            print("------------------------------------------------")
 
         df = ETLProcessor.postprocess(df)
-        validating(df)
         
         return df
 
@@ -232,7 +239,7 @@ class ETLProcessor(object):
     @staticmethod
     def final_score(df: DataFrame, A: int, B: int, C: int, D: int):
         df = df.withColumn(
-            "score", A * df.voting_power_score + B * df.commission_score + C * df.self_bonded_score + D * df.vote_score
+            "score", A * df.voting_power_score + B * df.commission_score + C * df.self_bonded_score #+ D * df.vote_score
         )
 
         ### Jailed = True -> score = 0
@@ -258,6 +265,18 @@ class ETLProcessor(object):
             "label", 
             F.when(F.lag("score", -size).over(lag_window).isNotNull(), F.mean("score").over(window))
         ).orderBy("block_height")
+
+        Dict_Null = {
+            c : df.filter(
+                F.col(c).contains('None') | \
+                F.col(c).contains('NULL') | \
+                (F.col(c) == '')  | \
+                F.col(c).isNull()
+            ).count() 
+            for c in df.columns
+        }
+
+        print(Dict_Null)
 
         df = df.na.drop()
 

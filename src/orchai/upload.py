@@ -63,7 +63,7 @@ def validating(df, last_end_block: int=None):
     return block_heights[-1]
         
 
-def get_batches(start_block, end_block, batch_size, vote_proposed_win_size, label_win_size):
+def get_batches(start_block, end_block, batch_size, vote_proposed_win_size, label_win_size, cal_score: bool):
     """
     sh |-------------------------------| st
 
@@ -74,12 +74,21 @@ def get_batches(start_block, end_block, batch_size, vote_proposed_win_size, labe
     fh: finish head
     ft: finish tail
 
-    fh_0 = sh_0 + vote_propose_win_size - block_step
-    ft_0 = st_0 - label_win_size
+    if cal_score
+        fh_0 = sh_0 + vote_propose_win_size - block_step
+        ft_0 = st_0 - label_win_size
 
-    fh_1 = ft_0 + block_step
-    sh_1 = fh_1 - vote_propose_win_size + block_step
-         = st_0 - label_win_size + block_step - vote_propose_win_size + block_step
+        fh_1 = ft_0 + block_step
+        sh_1 = fh_1 - vote_propose_win_size + block_step
+             = st_0 - label_win_size + block_step - vote_propose_win_size + block_step
+    
+    else
+        fh_0 = sh_0 + vote_propose_win_size - block_step
+        ft_0 = st_0 
+
+        fh_1 = ft_0 + block_step 
+        sh_1 = fh_1 - vote_propose_win_size + block_step
+             = st_0 + block_step - vote_propose_win_size + block_step
 
     """
     block_step = Constants.block_step
@@ -100,14 +109,27 @@ def get_batches(start_block, end_block, batch_size, vote_proposed_win_size, labe
             if num_blocks < vote_proposed_win_size - block_step + label_win_size:
                 intervals[-1][1] = st
             else:
-                intervals.append((sh, st))
+                intervals.append([sh, st])
             break
-        intervals.append((sh, st))
-        sh = st - label_win_size + block_step - vote_proposed_win_size + block_step
+        intervals.append([sh, st])
+        if cal_score:
+            sh = st - label_win_size + block_step - vote_proposed_win_size + block_step
+        else:
+            sh = st + block_step - vote_proposed_win_size + block_step
     return intervals
 
 
-def run_uploading(config, start_block: int, end_block: int, spark=None, show_intervals=True, delete_old_file: bool=None, logger=None, skip_validate: bool=False):
+def run_uploading(
+    config, 
+    start_block: int, 
+    end_block: int, 
+    spark=None, 
+    show_intervals=True, 
+    overwrite: bool=None, 
+    logger=None, 
+    skip_validate: bool=False, 
+    cal_score: bool=True,
+):
     block_step             = Constants.block_step
     assert (end_block - start_block) % block_step == 0
     vote_proposed_win_size  = config.hp.etl.vote_proposed_win_size
@@ -122,12 +144,12 @@ def run_uploading(config, start_block: int, end_block: int, spark=None, show_int
 
     if hasattr(config.dest, "file"):
         if os.path.exists(config.dest.file):
-            if delete_old_file is None:
+            if overwrite is None:
                 if yes_no("| Delete " + config.dest.file):
                     shutil.rmtree(config.dest.file)
                 elif yes_no("| Exit ??"):
                     exit()
-            elif delete_old_file:
+            elif overwrite:
                 shutil.rmtree(config.dest.file)
 
     ### Start uploading process
@@ -137,6 +159,7 @@ def run_uploading(config, start_block: int, end_block: int, spark=None, show_int
         batch_size=batch_size,
         vote_proposed_win_size=vote_proposed_win_size,
         label_win_size=label_win_size,
+        cal_score=cal_score
     )
 
     if show_intervals:
@@ -158,7 +181,7 @@ def run_uploading(config, start_block: int, end_block: int, spark=None, show_int
         df = sampling(spark, config, start, end)
         print("Successfully query data from database")
         
-        df = ETLProcessor.data_scoring(df, **config.hp.etl)
+        df = ETLProcessor.data_scoring(df, **config.hp.etl, cal_score=cal_score)
 
         if not skip_validate:
             print("Start validating:")

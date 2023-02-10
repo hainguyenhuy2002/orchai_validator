@@ -1,15 +1,74 @@
+import pandas as pd
+
+
+def cal_score(row: pd.Series, A, B, C, D):
+    row["score"] = (
+        A * row["voting_power_score"] 
+        + B * row["commission_score"]
+        + C * row["self_bonded_score"]
+        + D * row["vote_score"]
+    )
+    return row
+
+
+def clone(filepath: str, A, B, C, D):
+    df = pd.read_parquet(filepath)
+    df = df.apply(cal_score, axis=1, A=A, B=B, C=C, D=D)
+    return df
+
+
+ITER = 0
+MIN_ITER = None
+MAX_ITER = None
+
+
+def get_params(param_grid: dict, keys: list=None, params: dict=None):
+    if params is None:
+        params = {}
+    
+    if keys is None:
+        keys = []
+
+    if len(param_grid) == len(keys):
+        global ITER
+        global MIN_ITER
+        ITER += 1
+        min_iter = MIN_ITER if MIN_ITER is not None else ITER - 1
+        max_iter = MAX_ITER if MAX_ITER is not None else ITER + 1
+        if min_iter <= ITER <= max_iter:
+            yield params
+    else:
+        for k, v in param_grid.items():
+            if k not in keys:
+                params.update({k: v})
+                keys.append(k)
+                get_params(param_grid, keys, params)
+                keys.pop()
+
+
 if __name__ == "__main__":
+    param_grid = {
+        "A": [7, 8, 9, 10],
+        "B": [7, 8, 9, 10],
+        "C": [2, 3, 4],
+        "D": [7, 8, 9, 10],
+    }
+
+    for p in get_params(param_grid):
+        print(**p)
+
+    exit()
+
     import os, sys
     sys.path.append(os.path.join(os.getcwd(), "src"))
 
     from orchai.tools import get_spark, get_logger
-    from orchai.upload import run_uploading
-    from orchai.back_test import back_test
+    from orchai.back_test_pd import back_test
     from orchai.constants import Constants
     from omegaconf import OmegaConf
     from functools import partial
 
-    params = {
+    param_grid = {
         "A": [7, 8, 9, 10],
         "B": [7, 8, 9, 10],
         "C": [2, 3, 4],
@@ -19,40 +78,27 @@ if __name__ == "__main__":
     start_block = 7059473
     end_block = 9583823
     config_file = "config/etl_file_1m.yaml"
+    filepath = "data/etl_parquet_1m_no_score"
 
     config = OmegaConf.load(config_file)
     spark = get_spark()
     logger = get_logger('tunning')
 
-    for a in params["A"]:
-        for b in params["B"]:
-            for c in params["C"]:
-                for d in params["D"]:
-                    config.hp.etl.A = a
-                    config.hp.etl.B = b
-                    config.hp.etl.C = c
-                    config.hp.etl.D = d
-
-                    # run_uploading(
-                    #     config=config,
-                    #     start_block=start_block,
-                    #     end_block=end_block, 
-                    #     spark=spark,
-                    #     delete_old_file=True,
-                    #     logger=logger)
+    for a in param_grid["A"]:
+        for b in param_grid["B"]:
+            for c in param_grid["C"]:
+                for d in param_grid["D"]:
+                    df = clone(filepath, a, b, c, d)
                     
-                    acc = partial(back_test,
-                        path=config.dest.file,
-                        C_R_BASE=Constants.C_R_BASE,
-                        start_block=start_block,
-                        end_block=end_block,
-                        step_block=14400,
-                        timestamp_block=432000,
-                        spark=spark,
-                        save=False)
+                    acc = back_test(
+                        df,
+                        start=start_block,
+                        end=end_block,
+                        hop_size=14400,
+                        win_size=432000,
+                        col="score"
+                    )
 
                     logger.write("Score acc")
-                    logger.write(a, b, c, d, " Acc:", acc(col="score"))
+                    logger.write(a, b, c, d, " Acc:", acc)
                     exit()
-                    logger.write("Label acc")
-                    logger.write(a, b, c, d, " Acc:", acc(col="label"))

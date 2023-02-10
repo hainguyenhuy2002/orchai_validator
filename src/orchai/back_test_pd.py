@@ -2,7 +2,26 @@ import pandas as pd
 import decimal
 from tqdm import tqdm
 from functools import partial
+from math import log
 
+#Use Pielou's Evenness
+
+def decentralize_backtest(df,start ,end, hop_size):
+    
+    df = df[(df['block_height']<= end) &(df['block_height'] >= start) &(df['block_height']% hop_size == start % hop_size)].sort_values('block_height')
+    def calculate(df: pd.DataFrame):
+        df['mean'] = df['tokens'].mean()
+        df['pi'] = df['tokens']/df['tokens'].sum()
+        df['ln(pi)'] = df['pi'].apply(lambda x: log(x))
+        df['pi_mul_ln(pi)'] = df['pi'] * df['ln(pi)']
+        df['total'] = df['pi_mul_ln(pi)'].sum()
+        df['decentralized_score'] = df['total'].apply(lambda x: abs(x))/ df['mean'].apply(lambda x: log(x))
+
+        return df
+
+    df = df.groupby('block_height').apply(calculate)
+    df = df.groupby('block_height').agg({"decentralized_score":"mean"}).reset_index()
+    return df
 
 def cal_delta(df: pd.DataFrame):
     df              = df.sort_values("block_height")
@@ -63,4 +82,8 @@ def back_test_reward(df: pd.DataFrame, start: int, end: int, hop_size: int, win_
 if __name__ == "__main__":
     df = pd.read_parquet("data/etl_parquet_1m")
     dt = back_test_reward(df, start=7059473, end=9583823, hop_size=14400, win_size=432000, col="score")
+    
     print(dt[dt["real_reward"] <= dt["fake_reward"]].shape[0] / dt.shape[0])
+
+    dc = decentralize_backtest(df, start =7059473, end = 9583823, hop_size=14400 )
+    print()

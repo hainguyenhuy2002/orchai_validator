@@ -3,9 +3,22 @@ from pyspark.sql import Window, DataFrame
 from orchai.constants import Constants
 
 
-def validating(dff):
+def validating(df):
+    print({
+            c : df.filter(
+                F.col(c).contains('None') | \
+                F.col(c).contains('NULL') | \
+                (F.col(c) == '')  | \
+                F.col(c).isNull()
+            ).count() 
+            for c in df.columns
+        })
+    return
+
+        
+
     import numpy as np
-    block_heights = dff.groupBy("block_height").count().select(F.col("block_height"))
+    block_heights = df.groupBy("block_height").count().select(F.col("block_height"))
     block_heights = block_heights.toPandas().to_numpy().reshape((-1,))
     block_heights.sort()
     print("start-end final blocks:", block_heights[0], block_heights[-1])
@@ -73,33 +86,33 @@ class ETLProcessor(object):
        
         df = ETLProcessor.vote_score(df, vote_proposed_win_size)
         print("Successfully converted vote_propose_score column")
-        # validating(df)
+        validating(df)
         print("------------------------------------------------")
 
         df = ETLProcessor.voting_power_score(df)
         print("Successfully converted voting_power_score column")
-        # validating(df)
+        validating(df)
         print("------------------------------------------------")
 
         df = ETLProcessor.commission_score(df, accept_rate)
         print("Successfully converted commission_score column")
-        # validating(df)
+        validating(df)
         print("------------------------------------------------")
 
         df = ETLProcessor.self_bonded_score(df, concentration_level)
         print("Successfully converted self_bonded_score column")
-        # validating(df)
+        validating(df)
         print("------------------------------------------------")
 
         if cal_score:
             df = ETLProcessor.final_score(df, A, B, C, D)
             print("Sucessfully converted final_score")
-            # validating(df)
+            validating(df)
             print("------------------------------------------------")
 
             df = ETLProcessor.shifting_data(df, label_win_size)
             print("Sucessfully shifting data")
-            # validating(df)
+            validating(df)
             print("------------------------------------------------")
         else:
             print("Skip calculating score")
@@ -265,18 +278,6 @@ class ETLProcessor(object):
             "label", 
             F.when(F.lag("score", -size).over(lag_window).isNotNull(), F.mean("score").over(window))
         ).orderBy("block_height")
-
-        Dict_Null = {
-            c : df.filter(
-                F.col(c).contains('None') | \
-                F.col(c).contains('NULL') | \
-                (F.col(c) == '')  | \
-                F.col(c).isNull()
-            ).count() 
-            for c in df.columns
-        }
-
-        print(Dict_Null)
 
         df = df.na.drop()
 

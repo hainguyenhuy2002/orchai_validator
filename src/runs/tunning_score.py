@@ -17,14 +17,10 @@ def clone(filepath: str, A, B, C, D):
     return df
 
 
-ITER = 0
-MIN_ITER = None
-MAX_ITER = None
 
-
-def get_params(param_grid: dict, keys: list=None, params: dict=None):
-    if params is None:
-        params = {}
+def get_params(param_grid: dict, keys: list=None, params_list: list=None):
+    if params_list is None:
+        params_list = {}
     
     if keys is None:
         keys = []
@@ -40,7 +36,6 @@ def get_params(param_grid: dict, keys: list=None, params: dict=None):
     else:
         for k, v in param_grid.items():
             if k not in keys:
-                params.update({k: v})
                 keys.append(k)
                 get_params(param_grid, keys, params)
                 keys.pop()

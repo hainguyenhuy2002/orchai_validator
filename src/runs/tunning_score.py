@@ -1,13 +1,13 @@
 import pandas as pd
-
+from decimal import Decimal
 
 
 def cal_score(row: pd.Series, A, B, C, D):
     row["score"] = (
-        A * row["voting_power_score"] 
-        + B * row["commission_score"]
-        + C * row["self_bonded_score"]
-        + D * row["vote_score"]
+          Decimal(A) * Decimal(row["voting_power_score"]) 
+        + Decimal(B) * Decimal(row["commission_score"])
+        + Decimal(C) * Decimal(row["self_bonded_score"])
+        + Decimal(D) * Decimal(row["vote_score"])
     )
     return row
 
@@ -38,10 +38,11 @@ if __name__ == "__main__":
     import os, sys
     sys.path.append(os.path.join(os.getcwd(), "src"))
 
-    from orchai.tools import get_spark, get_logger
+    from orchai.tools import get_logger
     from orchai.back_test_pd import back_test_reward
     from omegaconf import OmegaConf
     from argparse import ArgumentParser
+    import pickle as pkl
 
     parser = ArgumentParser()
     parser.add_argument("-s", "--start", type=int, default=None, help="Start iter")
@@ -60,15 +61,15 @@ if __name__ == "__main__":
     config_file     = "config/etl_file_1m.yaml"
     filepath        = "data/etl_parquet_1m_no_score"
     config          = OmegaConf.load(config_file)
-    spark           = get_spark()
     logger          = get_logger('tunning')
-    best_acc        = 0
-    best_param      = []
+    results         = []
 
     for p in get_params(param_grid, start=args.start, end=args.end):
-        print(p)
+        logger.write(p)
+        logger.write("Cloning")
         df = clone(filepath, **p)
         
+        logger.write("Reward backtesting")
         acc = back_test_reward(
             df,
             start=start_block,
@@ -78,11 +79,8 @@ if __name__ == "__main__":
             col="score"
         )
 
-        if acc == best_acc:
-            best_param.append(p)
-        if acc > best_acc:
-            best_acc = acc
-            best_param = [p]
-
+        results.append((p, acc))
         logger.write(p, "Acc:", acc)
-        exit()
+
+    with open(f"results-{args.start}-{args.end}.pkl", "wb") as f:
+        pkl.dump(results, f)

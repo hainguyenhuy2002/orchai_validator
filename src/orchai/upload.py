@@ -127,7 +127,7 @@ def run_uploading(
     show_intervals=True, 
     overwrite: bool=None, 
     logger=None, 
-    skip_validate: bool=False, 
+    validate: bool=False, 
     cal_score: bool=True,
 ):
     block_step             = Constants.block_step
@@ -183,7 +183,7 @@ def run_uploading(
         
         df = ETLProcessor.data_scoring(df, **config.hp.etl, cal_score=cal_score)
 
-        if not skip_validate:
+        if validate:
             print("Start validating:")
             last_end_block = validating(df, last_end_block)
 

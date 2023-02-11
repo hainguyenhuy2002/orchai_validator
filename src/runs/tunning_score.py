@@ -51,19 +51,21 @@ if __name__ == "__main__":
     for p in get_params(param_grid, start=args.start, end=args.end):
         logger.write(p)
         logger.write("Cloning")
-        run_uploading(config, start_block, end_block, spark, overwrite=True, logger=logger)
+        run_uploading(config, start_block, end_block, spark, overwrite=True, logger=logger, validate=False)
         df = pd.read_parquet(config.dest.file)
 
         logger.write("Reward backtesting")
-        acc = back_test_reward(
+        dt = back_test_reward(
             df,
             start=start_block,
             end=end_block,
             hop_size=14400,
             win_size=432000,
-            col="score"
+            col="score",
+            use_tqdm=False
         )
 
+        acc = dt[dt["fake_reward"] >= dt["real_reward"]].shape[0] / dt.shape[0]
         results.append((p, acc))
         logger.write(p, "Acc:", acc)
 

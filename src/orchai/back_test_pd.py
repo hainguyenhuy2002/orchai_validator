@@ -103,7 +103,7 @@ def process_item(df: pd.DataFrame, start, end, col):
     }
     
 
-def back_test_reward(df: pd.DataFrame, start: int, end: int, hop_size: int, win_size: int, col):
+def back_test_reward(df: pd.DataFrame, start: int, end: int, hop_size: int, win_size: int, col, use_tqdm=True):
     df = df[["block_height", "operator_address", "delegators_token", "commission_rate", col]]
     results = {
         "block_height" : [],
@@ -117,7 +117,10 @@ def back_test_reward(df: pd.DataFrame, start: int, end: int, hop_size: int, win_
         "end": sb + win_size - 1
     } for sb in range(start, end, hop_size) if sb + win_size - 1 <= end]
 
-    for arg in tqdm(args):
+    if use_tqdm:
+        args = tqdm(args)
+
+    for arg in args:
         result = process(**arg)
         results["block_height"].append(result["block_height"])
         results["real_reward"].append(result["real_reward"])

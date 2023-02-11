@@ -12,7 +12,8 @@ def dec_score(df:pd.DataFrame, col:str):
     def calculate(df: pd.DataFrame):
         df['count'] = df[col].count()
         df['pi'] = df[col]/df[col].sum()
-        df['ln(pi)'] = df['pi'].apply(lambda x: log(x))
+        # df['ln(pi)'] = df['pi'].apply(lambda x: log(x))
+        df['ln(pi)'] = df['pi'].apply(lambda x: -9999999999 if (x ==0) else log(x))
         df['pi_mul_ln(pi)'] = df['pi'] * df['ln(pi)']
         df['total'] = df['pi_mul_ln(pi)'].sum()
         df['decentralized_score'] = df['total'].apply(lambda x: abs(x))/ df['count'].apply(lambda x: log(x))

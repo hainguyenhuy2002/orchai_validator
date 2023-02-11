@@ -1,0 +1,35 @@
+| Start logging at d:\Blockchain\data\orai\orchai_validator\output\logs\uploading-2023-02-11_12-41-03.txt
+| Intervals:
+0 - 7059473 -> 7659473 : 4001.0
+1 - 7645373 -> 8245373 : 4001.0
+2 - 8231273 -> 8831273 : 4001.0
+3 - 8817173 -> 9583823 : 5112.0
+| Start
+0 - 7059473 -> 7659473 : 4001.0
+Successfully query data from database
+Start validating:
+start-end final blocks: 7073723 7659473
+uploading data ...
+End. Duration: 45.484612703323364 
+
+1 - 7645373 -> 8245373 : 4001.0
+Successfully query data from database
+Start validating:
+start-end final blocks: 7659623 8245373
+uploading data ...
+End. Duration: 34.057600021362305 
+
+2 - 8231273 -> 8831273 : 4001.0
+Successfully query data from database
+Start validating:
+start-end final blocks: 8245523 8831273
+uploading data ...
+End. Duration: 31.594823598861694 
+
+3 - 8817173 -> 9583823 : 5112.0
+Successfully query data from database
+Start validating:
+start-end final blocks: 8831423 9583823
+uploading data ...
+End. Duration: 37.51889228820801 
+

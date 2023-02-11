@@ -1,0 +1,24 @@
+src:
+  host: "103.160.75.28"
+  port: 5432
+  user: "orchai_rw"
+  password: "travaorchai_rw123"
+  database: "orchai"
+  table: "public.validator_block"
+dest:
+  file: data/etl_parquet_1m_tune
+  mode: append
+hp:
+  etl:
+    accept_rate: 0.1
+    concentration_level: 0.8
+    A: 8
+    B: 6
+    C: 2
+    D: 6
+    vote_proposed_win_size: 14400  
+    label_win_size: 432000
+  upload:
+    batch_size: 4001
+
+# psql -U orchai_rw --host 103.160.75.28 -d orchai

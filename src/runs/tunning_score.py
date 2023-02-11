@@ -1,21 +1,4 @@
 import pandas as pd
-from decimal import Decimal
-
-
-def cal_score(row: pd.Series, A, B, C, D):
-    row["score"] = (
-          Decimal(A) * Decimal(row["voting_power_score"]) 
-        + Decimal(B) * Decimal(row["commission_score"])
-        + Decimal(C) * Decimal(row["self_bonded_score"])
-        + Decimal(D) * Decimal(row["vote_score"])
-    )
-    return row
-
-
-def clone(filepath: str, A, B, C, D):
-    df = pd.read_parquet(filepath)
-    df = df.apply(cal_score, axis=1, A=A, B=B, C=C, D=D)
-    return df
 
 
 def get_params(param_grid: dict, start=None, end=None):
@@ -38,8 +21,9 @@ if __name__ == "__main__":
     import os, sys
     sys.path.append(os.path.join(os.getcwd(), "src"))
 
-    from orchai.tools import get_logger
+    from orchai.tools import get_logger, get_spark
     from orchai.back_test_pd import back_test_reward
+    from orchai.upload import run_uploading
     from omegaconf import OmegaConf
     from argparse import ArgumentParser
     import pickle as pkl
@@ -58,17 +42,18 @@ if __name__ == "__main__":
 
     start_block     = 7059473
     end_block       = 9583823
-    config_file     = "config/etl_file_1m.yaml"
-    filepath        = "data/etl_parquet_1m_no_score"
+    config_file     = "config/etl_file_1m_tune.yaml"
     config          = OmegaConf.load(config_file)
     logger          = get_logger('tunning')
     results         = []
+    spark           = get_spark()
 
     for p in get_params(param_grid, start=args.start, end=args.end):
         logger.write(p)
         logger.write("Cloning")
-        df = clone(filepath, **p)
-        
+        run_uploading(config, start_block, end_block, spark, overwrite=True, logger=logger)
+        df = pd.read_parquet(config.dest.file)
+
         logger.write("Reward backtesting")
         acc = back_test_reward(
             df,

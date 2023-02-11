@@ -241,7 +241,7 @@ class ETLProcessor(object):
     @staticmethod
     def final_score(df: DataFrame, A: int, B: int, C: int, D: int):
         df = df.withColumn(
-            "score", A * df.voting_power_score + B * df.commission_score + C * df.self_bonded_score #+ D * df.vote_score
+            "score", A * df.voting_power_score + B * df.commission_score + C * df.self_bonded_score + D * df.vote_score
         )
 
         ### Jailed = True -> score = 0

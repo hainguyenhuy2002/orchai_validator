@@ -47,6 +47,8 @@ if __name__ == "__main__":
     logger          = get_logger('tunning')
     results         = []
     spark           = get_spark()
+    best_acc        = 0
+    best_param      = None
 
     for p in get_params(param_grid, start=args.start, end=args.end):
         logger.write(p)
@@ -66,8 +68,11 @@ if __name__ == "__main__":
         )
 
         acc = dt[dt["fake_reward"] >= dt["real_reward"]].shape[0] / dt.shape[0]
+        if acc > best_acc:
+            best_param = p
         results.append((p, acc))
-        logger.write(p, "Acc:", acc)
+        logger.write("Acc:", acc, "| param:", p)
+        logger.write("Best acc:", best_acc, "| param:", best_param)
 
     with open(f"results-{args.start}-{args.end}.pkl", "wb") as f:
         pkl.dump(results, f)

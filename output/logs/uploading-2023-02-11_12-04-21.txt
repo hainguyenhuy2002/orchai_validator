@@ -1,0 +1,114 @@
+| Intervals:
+0 - 7059473 -> 7659473 : 4001.0
+1 - 7213373 -> 7813373 : 4001.0
+2 - 7367273 -> 7967273 : 4001.0
+3 - 7521173 -> 8121173 : 4001.0
+4 - 7675073 -> 8275073 : 4001.0
+5 - 7828973 -> 8428973 : 4001.0
+6 - 7982873 -> 8582873 : 4001.0
+7 - 8136773 -> 8736773 : 4001.0
+8 - 8290673 -> 8890673 : 4001.0
+9 - 8444573 -> 9044573 : 4001.0
+10 - 8598473 -> 9198473 : 4001.0
+11 - 8752373 -> 9352373 : 4001.0
+12 - 8906273 -> 9506273 : 4001.0
+13 - 9060173 -> 9583823 : 3492.0
+| Start
+0 - 7059473 -> 7659473 : 4001.0
+Successfully query data from database
+Start validating:
+start-end final blocks: 7073723 7227473
+uploading data ...
+End. Duration: 166.17504930496216 
+
+1 - 7213373 -> 7813373 : 4001.0
+Successfully query data from database
+Start validating:
+start-end final blocks: 7227623 7381373
+uploading data ...
+End. Duration: 130.50498628616333 
+
+2 - 7367273 -> 7967273 : 4001.0
+Successfully query data from database
+Start validating:
+start-end final blocks: 7381523 7535273
+uploading data ...
+End. Duration: 122.92085099220276 
+
+3 - 7521173 -> 8121173 : 4001.0
+Successfully query data from database
+Start validating:
+start-end final blocks: 7535423 7689173
+uploading data ...
+End. Duration: 122.96432328224182 
+
+4 - 7675073 -> 8275073 : 4001.0
+Successfully query data from database
+Start validating:
+start-end final blocks: 7689323 7843073
+uploading data ...
+End. Duration: 124.2413718700409 
+
+5 - 7828973 -> 8428973 : 4001.0
+Successfully query data from database
+Start validating:
+start-end final blocks: 7843223 7996973
+uploading data ...
+End. Duration: 120.74401473999023 
+
+6 - 7982873 -> 8582873 : 4001.0
+Successfully query data from database
+Start validating:
+start-end final blocks: 7997123 8150873
+uploading data ...
+End. Duration: 118.7815797328949 
+
+7 - 8136773 -> 8736773 : 4001.0
+Successfully query data from database
+Start validating:
+start-end final blocks: 8151023 8304773
+uploading data ...
+End. Duration: 118.5775260925293 
+
+8 - 8290673 -> 8890673 : 4001.0
+Successfully query data from database
+Start validating:
+start-end final blocks: 8304923 8458673
+uploading data ...
+End. Duration: 114.27100157737732 
+
+9 - 8444573 -> 9044573 : 4001.0
+Successfully query data from database
+Start validating:
+start-end final blocks: 8458823 8612573
+uploading data ...
+End. Duration: 117.25719809532166 
+
+10 - 8598473 -> 9198473 : 4001.0
+Successfully query data from database
+Start validating:
+start-end final blocks: 8612723 8766473
+uploading data ...
+End. Duration: 111.42347359657288 
+
+11 - 8752373 -> 9352373 : 4001.0
+Successfully query data from database
+Start validating:
+start-end final blocks: 8766623 8920373
+uploading data ...
+End. Duration: 114.0353136062622 
+
+12 - 8906273 -> 9506273 : 4001.0
+Successfully query data from database
+Start validating:
+start-end final blocks: 8920523 9074273
+uploading data ...
+End. Duration: 114.84639286994934 
+
+13 - 9060173 -> 9583823 : 3492.0
+Successfully query data from database
+Start validating:
+start-end final blocks: 9074423 9151823
+uploading data ...
+End. Duration: 105.13467454910278 
+

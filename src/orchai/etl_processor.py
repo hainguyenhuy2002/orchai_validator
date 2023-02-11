@@ -4,19 +4,6 @@ from orchai.constants import Constants
 
 
 def validating(df):
-    print({
-            c : df.filter(
-                F.col(c).contains('None') | \
-                F.col(c).contains('NULL') | \
-                (F.col(c) == '')  | \
-                F.col(c).isNull()
-            ).count() 
-            for c in df.columns
-        })
-    return
-
-        
-
     import numpy as np
     block_heights = df.groupBy("block_height").count().select(F.col("block_height"))
     block_heights = block_heights.toPandas().to_numpy().reshape((-1,))
@@ -86,38 +73,39 @@ class ETLProcessor(object):
        
         df = ETLProcessor.vote_score(df, vote_proposed_win_size)
         print("Successfully converted vote_propose_score column")
-        validating(df)
+        # validating(df)
         print("------------------------------------------------")
 
         df = ETLProcessor.voting_power_score(df)
         print("Successfully converted voting_power_score column")
-        validating(df)
+        # validating(df)
         print("------------------------------------------------")
 
         df = ETLProcessor.commission_score(df, accept_rate)
         print("Successfully converted commission_score column")
-        validating(df)
+        # validating(df)
         print("------------------------------------------------")
 
         df = ETLProcessor.self_bonded_score(df, concentration_level)
         print("Successfully converted self_bonded_score column")
-        validating(df)
+        # validating(df)
         print("------------------------------------------------")
 
         if cal_score:
             df = ETLProcessor.final_score(df, A, B, C, D)
             print("Sucessfully converted final_score")
-            validating(df)
+            # validating(df)
             print("------------------------------------------------")
 
             df = ETLProcessor.shifting_data(df, label_win_size)
             print("Sucessfully shifting data")
-            validating(df)
+            # validating(df)
             print("------------------------------------------------")
         else:
             print("Skip calculating score")
             print("------------------------------------------------")
 
+        validating(df)
         df = ETLProcessor.postprocess(df)
         
         return df
@@ -207,7 +195,9 @@ class ETLProcessor(object):
         )
 
         df = df.join(max_self_bonded_score_df, on="block_height", how="left")
-        df = df.withColumn("self_bonded_score", df.self_bonded_score / df.max_self_bonded_score)
+        df = df.withColumn("self_bonded_score", 
+                            F.when(df.max_self_bonded_score == 0, 0)
+                             .otherwise(df.self_bonded_score / df.max_self_bonded_score))
         df = df.drop("max_self_bonded_score")
 
         return df

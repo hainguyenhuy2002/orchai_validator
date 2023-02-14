@@ -10,9 +10,9 @@
       + distance not stable (1 to 150)
   + attribute:
     + tokens: orai
-    + commission rate: %
+    + commission rate: % * $10^{18}$
     + delegators_shared: skip
-    + self_bonded: orai * 10^16
+    + self_bonded: orai * $10^{18}$
     + vote: boolean
     + delegators_token = tokens - self_bonded
 + table **validator_reward**:
